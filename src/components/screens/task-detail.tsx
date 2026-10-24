@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { AccessLink as Link } from "@/components/app-shell";
 import { useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, CalendarClock, Check, CheckCheck, ClipboardCheck, ExternalLink, File, FileCheck2, FileUp, History, Link2, Play, Send, ShieldCheck, X } from 'lucide-react';
 import { useDemo } from '@/components/demo-provider';
@@ -27,11 +27,11 @@ export function TaskDetailScreen({ id }: { id: string }) {
   const resolution = state.resolutions.find((item) => item.id === task.resolutionId);
   const owner = users.find((item) => item.id === task.ownerId);
   const reviewer = users.find((item) => item.id === task.reviewerId);
-  const isOwner = (mode === 'supabase' ? permissions.includes('task.work') : state.activeRole === 'owner') && state.currentUserId === task.ownerId;
+  const isOwner = permissions.includes('task.work') && state.currentUserId === task.ownerId;
   const isEditable = isOwner && (task.status === 'in_progress' || task.status === 'revision');
   const overdue = isOverdue(task, today);
-  const submitGuard = mode === 'supabase' ? { allowed: isOwner && ['in_progress', 'revision'].includes(task.status) && task.evidence.length > 0 && resolution?.executionAuthorized === true, reason: 'ตรวจการรับทราบ การอนุญาตเริ่ม และหลักฐานให้ครบก่อนดำเนินการ' } : validateTaskTransition(task, 'submitted', { role: state.activeRole, userId: state.currentUserId });
-  const startGuard = mode === 'supabase' ? { allowed: isOwner && Boolean(task.acknowledgedAt) && resolution?.executionAuthorized === true, reason: 'ตรวจการรับทราบ การอนุญาตเริ่ม และหลักฐานให้ครบก่อนดำเนินการ' } : validateTaskTransition(task, 'in_progress', { role: state.activeRole, userId: state.currentUserId });
+  const submitGuard = mode === 'supabase' ? { allowed: isOwner && ['in_progress', 'revision'].includes(task.status) && task.evidence.length > 0 && resolution?.executionAuthorized === true, reason: 'ตรวจการรับทราบ การอนุญาตเริ่ม และหลักฐานให้ครบก่อนดำเนินการ' } : isOwner ? validateTaskTransition(task, 'submitted', { role: 'owner', userId: state.currentUserId }) : { allowed: false, reason: 'เฉพาะเจ้าของงานที่มีสิทธิดำเนินงานเท่านั้น' };
+  const startGuard = mode === 'supabase' ? { allowed: isOwner && Boolean(task.acknowledgedAt) && resolution?.executionAuthorized === true, reason: 'ตรวจการรับทราบ การอนุญาตเริ่ม และหลักฐานให้ครบก่อนดำเนินการ' } : isOwner ? validateTaskTransition(task, 'in_progress', { role: 'owner', userId: state.currentUserId }) : { allowed: false, reason: 'เฉพาะเจ้าของงานที่มีสิทธิดำเนินงานเท่านั้น' };
   const audit = state.audit.filter((event) => event.targetId === task.id);
   const preview = task.evidence.find((item) => item.id === previewId);
 
@@ -119,15 +119,15 @@ export function TaskDetailScreen({ id }: { id: string }) {
             {task.status === 'submitted' && <><div className="inline-alert"><p className="text-sm font-medium">อยู่ระหว่างตรวจรับ</p><p className="mt-1 text-xs leading-6">ชุดหลักฐานที่ส่งแล้วไม่ควรถูกแก้ไขจนกว่าจะได้รับผลตรวจ</p></div><Link href={`/reviews?task=${task.id}`} className="button button-secondary"><ClipboardCheck size={16} /> เปิดคิวตรวจรับ</Link></>}
             {task.status === 'accepted' && <div className="inline-alert success"><ShieldCheck size={21} /><div><p className="font-medium">ตรวจรับผลงานแล้ว</p><p className="mt-1 text-xs">{formatThaiDate(task.acceptedAt)}</p></div></div>}
             {task.status === 'cancelled' && <p className="text-sm leading-7 muted">งานนี้ยุติแล้ว โดยคงประวัติไว้และไม่นับเป็นผลงานสำเร็จ</p>}
-            {!isOwner && ['assigned', 'in_progress', 'revision'].includes(task.status) && <p className="text-xs leading-6 muted">{mode === 'demo' ? 'สลับเป็นบทบาทผู้ปฏิบัติงานเพื่อทดลองดำเนินการ' : 'กิจกรรมนี้ดำเนินการได้โดยเจ้าของงานที่ได้รับมอบหมาย'}</p>}
-            {!['accepted', 'cancelled'].includes(task.status) && <Link href={`/changes?task=${task.id}`} className="button button-ghost justify-center"><CalendarClock size={16} /> ขอเปลี่ยนแปลงเงื่อนไข</Link>}
+            {!isOwner && ['assigned', 'in_progress', 'revision'].includes(task.status) && <p className="text-xs leading-6 muted">กิจกรรมนี้ดำเนินการได้โดยเจ้าของงานที่ได้รับมอบหมายและมีสิทธิดำเนินงาน</p>}
+            {permissions.includes('change.request') && !['accepted', 'cancelled'].includes(task.status) && <Link href={`/changes?task=${task.id}`} className="button button-ghost justify-center"><CalendarClock size={16} /> ขอเปลี่ยนแปลงเงื่อนไข</Link>}
           </div>
         </Panel>
 
         <Panel title="ข้อมูลการมอบหมาย">
           <div className="space-y-5">
             <div><p className="mb-2 text-xs muted">ผู้รับผิดชอบหลัก</p><div className="flex items-center gap-3"><Avatar userId={task.ownerId} /><div><p className="text-sm font-medium">{owner?.name}</p><p className="mt-0.5 text-xs muted">{task.unit}</p></div></div></div>
-            <div><p className="mb-2 text-xs muted">ผู้ตรวจรับ</p><div className="flex items-center gap-3"><Avatar userId={task.reviewerId} /><p className="text-sm">{reviewer?.name}</p></div></div>
+            <div><p className="mb-2 text-xs muted">ผู้ตรวจรับ</p><div className="flex items-center gap-3"><Avatar userId={task.reviewerId} /><p className="text-sm">{reviewer?.name ?? 'ผู้ตรวจที่ได้รับมอบหมาย'}</p></div></div>
             <dl className="space-y-4 border-t border-[#e0e7e5] pt-4 text-sm"><div className="flex justify-between gap-4"><dt className="muted">กำหนดปัจจุบัน</dt><dd className={`text-right font-medium ${overdue ? 'text-[#a83e32]' : ''}`}>{formatThaiDate(task.dueDate)}{overdue && <span className="mt-1 block text-xs">เกิน {Math.abs(daysUntil(task.dueDate, today) ?? 0)} วัน</span>}</dd></div><div className="flex justify-between gap-4"><dt className="muted">กำหนดเดิม</dt><dd className="text-right">{formatThaiDate(task.originalDueDate)}</dd></div><div className="flex justify-between gap-4"><dt className="muted">รับทราบเมื่อ</dt><dd className="text-right">{task.acknowledgedAt ? formatThaiDate(task.acknowledgedAt) : 'ยังไม่รับทราบ'}</dd></div>{task.submittedAt && <div className="flex justify-between gap-4"><dt className="muted">ส่งตรวจเมื่อ</dt><dd className="text-right">{formatThaiDate(task.submittedAt)}</dd></div>}</dl>
             <p className="text-xs muted">{mode === 'demo' ? 'วันอ้างอิงข้อมูลจำลอง' : 'วันที่ปัจจุบัน'}: {formatThaiDate(today)}</p>
           </div>

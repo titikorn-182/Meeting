@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type FormEvent } from 'react';
-import Link from 'next/link';
+import { AccessLink as Link } from "@/components/app-shell";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, CalendarDays, Clock3, FileText, MapPin, Plus, Printer, Search, X } from 'lucide-react';
 import { useDemo } from '@/components/demo-provider';
@@ -15,7 +15,7 @@ export function MeetingsScreen() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [creating, setCreating] = useState(false);
-  const canCreate = mode === 'supabase' ? permissions.includes('meeting.manage') : state.activeRole === 'secretary';
+  const canCreate = permissions.includes('meeting.manage');
   const meetings = useMemo(() => state.meetings.filter((meeting) =>
     (status === 'all' || meeting.status === status) &&
     `${meeting.title} ${meeting.number} ${meeting.committee}`.toLocaleLowerCase('th').includes(query.toLocaleLowerCase('th')),

@@ -57,7 +57,28 @@ test('connected state must include its signed-in user, organization and director
   assert.equal(isWorkspaceSnapshot(null), false);
   assert.equal(isWorkspaceSnapshot({ state: {} }), false);
   const state = { resolutions: [], tasks: [], meetings: [], changes: [], notifications: [], audit: [], currentUserId: uuid, settings: {} };
-  const valid = { state, users: [{ id: uuid }], units: [], eligibleOwners: [], organization: { id: uuid, name: 'องค์กร' }, permissions: [], roles: [] };
+  const access = { role: 'staff', pages: ['tasks'], policies: { admin: ['dashboard', 'meetings', 'resolutions', 'tasks', 'reviews', 'changes', 'reports', 'team', 'settings', 'notifications'], user: [], executive: [], staff: ['tasks'] }, policyVersion: 1, members: { [uuid]: { role: 'staff', version: 0 } } };
+  const valid = { state, users: [{ id: uuid }], units: [], eligibleOwners: [], organization: { id: uuid, name: 'องค์กร' }, permissions: [], roles: [], access };
   assert.equal(isWorkspaceSnapshot(valid), true);
   assert.equal(isWorkspaceSnapshot({ ...valid, users: [] }), false);
+  assert.equal(isWorkspaceSnapshot({ ...valid, access: undefined }), false);
+  assert.equal(isWorkspaceSnapshot({ ...valid, access: { ...access, role: 'admin' } }), false);
+});
+
+test('member role command accepts version zero but strips caller identity and authority', () => {
+  const result = parseWorkspaceCommand(envelope('set_member_role', { profileId: uuid, role: 'admin', expectedVersion: 0, actorId: uuid, organizationId: uuid, bypass: true }));
+  assert.deepEqual(result.payload, { profileId: uuid, role: 'admin', expectedVersion: 0 });
+  for (const role of ['secretary', 'superadmin', 'ADMIN']) fails(envelope('set_member_role', { profileId: uuid, role, expectedVersion: 0 }));
+  fails(envelope('set_member_role', { profileId: uuid, role: 'admin', expectedVersion: -1 }));
+});
+
+test('page policy accepts an explicit no-access policy but rejects Admin edits and Staff broad access', () => {
+  assert.deepEqual(parseWorkspaceCommand(envelope('set_role_pages', { role: 'user', pages: [], expectedVersion: 1 })).payload, { role: 'user', pages: [], expectedVersion: 1 });
+  for (const payload of [
+    { role: 'admin', pages: [], expectedVersion: 1 },
+    { role: 'staff', pages: ['team'], expectedVersion: 1 },
+    { role: 'user', pages: ['tasks', 'tasks'], expectedVersion: 1 },
+    { role: 'user', pages: ['unknown'], expectedVersion: 1 },
+    { role: 'user', pages: ['tasks'], expectedVersion: 0 },
+  ]) fails(envelope('set_role_pages', payload));
 });

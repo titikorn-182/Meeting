@@ -47,6 +47,7 @@ export function SupabaseWorkspaceProvider({ children }: { children: ReactNode })
       if (!configured) throw new WorkspaceError('CONFIGURATION_REQUIRED', 503);
       const org = current.current?.organization.id ?? configuredOrg;
       const data = await fetchJson(`/api/workspace${org ? `?organizationId=${encodeURIComponent(org)}` : ''}`);
+      if (data && typeof data === 'object' && !('access' in data)) throw new WorkspaceError('SCHEMA_NOT_READY', 503);
       if (!isWorkspaceSnapshot(data)) throw new WorkspaceError('INVALID_RESPONSE', 502);
       if (serial !== requestSerial.current) return false;
       current.current = data; setSnapshot(data); setProblem(null);
@@ -119,6 +120,13 @@ export function SupabaseWorkspaceProvider({ children }: { children: ReactNode })
     ...snapshot, state: snapshot.state, user: snapshot.users.find(user => user.id === snapshot.state.currentUserId)!,
     mode: 'supabase', ready: true, busy, today: bangkokToday(), notify, refresh,
     setRole() { notify('สิทธิ์ของบัญชีนี้กำหนดโดยผู้ดูแลพื้นที่ทำงาน', 'info'); },
+    setAccessRole() { notify('สิทธิ์ของบัญชีนี้กำหนดโดย Admin ของพื้นที่ทำงาน', 'info'); },
+    async setMemberRole(profileId, role, expectedVersion) {
+      return !!await command('set_member_role', { profileId, role, expectedVersion }, 'บันทึกบทบาทสมาชิกแล้ว');
+    },
+    async setRolePages(role, pages, expectedVersion) {
+      return !!await command('set_role_pages', { role, pages, expectedVersion }, 'บันทึกสิทธิ์เข้าหน้าแล้ว');
+    },
     resetDemo() { notify('พื้นที่ทำงานจริงไม่มีการรีเซ็ตข้อมูลตัวอย่าง', 'info'); },
     async acknowledgeTask(id) { return !!await command('acknowledge_task', { id, expectedVersion: taskVersion(id) }, 'รับทราบการมอบหมายแล้ว'); },
     async transitionTask(id, status, note = '', criterionResults) { return !!await command('transition_task', { id, status, note, ...(criterionResults ? { criterionResults } : {}), expectedVersion: taskVersion(id) }, 'บันทึกผลการดำเนินงานแล้ว'); },

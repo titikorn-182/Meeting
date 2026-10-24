@@ -41,6 +41,8 @@
 
 ใช้ฐานข้อมูลเชิงสัมพันธ์เป็นหลัก แยกข้อมูลธุรกิจที่มี FK ชัดเจนออกจาก JSON สำหรับ snapshot, payload งานเบื้องหลัง และประวัติรุ่น ไม่ย้ายโครงสร้าง DemoState ทั้งก้อนไปเก็บเป็น JSON แถวเดียว
 
+**ขอบเขตเอกสารกับโค้ดที่ใช้งานแล้ว:** รายละเอียดส่วนใหญ่ในเอกสารนี้เป็นแบบเป้าหมายตาม PRD ไม่ใช่คำรับรองว่า migration ปัจจุบันทำครบแล้ว รุ่นที่เชื่อม UI ใช้ migrations 001–005 และโมเดลบทบาทแอป Admin/User/Executive/Staff ตาม §17.0 ด้านล่าง คำว่า technical admin ในแบบเป้าหมายหมายถึงผู้ดูแลโครงสร้างพื้นฐาน ไม่ใช่บทบาทแอป Admin ที่ได้รับ business capabilities อย่างชัดเจนในรุ่นปัจจุบัน
+
 สิ่งที่ต้องแยกตั้งแต่แรก:
 
 | แนวคิด | หน่วยข้อมูล | เหตุผล |
@@ -51,7 +53,7 @@
 | กำหนดเดิม / กำหนดปัจจุบัน / วันที่ขอ | original_deadline_version_id / current_deadline_version_id / deadline_change_proposals | คำขอค้างไม่มีผล และการขยายไม่ล้างฐานเดิม |
 | ไฟล์เชิงตรรกะ / เนื้อหาไฟล์แต่ละรุ่น | documents / document_versions | submission ต้องชี้ฉบับแน่นอน ไม่ใช่ “ไฟล์ล่าสุด” |
 | ข้อมูลปัจจุบัน / สิ่งที่ทราบในอดีต / รายงานที่ออกแล้ว | current projections / state revisions / report_snapshots | การย้ายเจ้าของหรือแก้ข้อมูลเข้าช้าไม่เปลี่ยนรายงานเดิม |
-| บัญชี login / บุคคล / สิทธิธุรกิจ | auth.users / profiles / access_grants | ปิดบัญชีได้โดยยังรักษาประวัติ; admin ไม่มีอำนาจรับรองโดยอัตโนมัติ |
+| บัญชี login / บุคคล / สิทธิธุรกิจ | auth.users / profiles / access_grants | ปิดบัญชีได้โดยยังรักษาประวัติ; ผู้ดูแลโครงสร้างพื้นฐานไม่มีอำนาจรับรองในแอปโดยอัตโนมัติ |
 
 กฎแกนกลางของแบบนี้:
 
@@ -836,6 +838,33 @@ append-only triggers/privileges ป้องกันผู้ใช้แอป
 
 <a id="implementation"></a>
 ## 17. การเชื่อม UI และลำดับ migrations
+
+### 17.0 Implementation ปัจจุบัน: บทบาทแอปและ page policies
+
+ชุดที่รันได้จริงคือ [migrations 001–005](supabase/migrations/) ไม่ใช่ลำดับ M01–M08 ของแบบเป้าหมายใน §17.2 Project ใหม่ใช้ [install.sql](supabase/install.sql) ครั้งเดียว ซึ่งรวมแหล่ง SQL ทั้ง 5 ไฟล์พร้อม SHA256; project ที่ใช้ 001–004 แล้วใช้เฉพาะ [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ซึ่งตรงกับ migration 005 โดยไม่ติดตั้งตารางเดิมซ้ำ ไม่มีการย้าย demo/localStorage หรือแต่งตั้ง Admin จากการ signup
+
+Migration 005 เพิ่ม `private.member_access_roles` สำหรับบทบาทแอปหลักหนึ่งค่าต่อสมาชิก/องค์กรและ optimistic version, `private.role_page_policies` สำหรับหน้าที่บทบาทเปิดได้ และ `private.access_policy_versions` สำหรับ version policy ทั้งองค์กร (เริ่ม 1) ถ้ายังไม่มี role override จะ derive จาก legacy grant ที่ยังมีผล: secretary → User, executive → Executive, owner/reviewer → Staff โดย secretary มีลำดับก่อน executive เมื่อมีหลาย grants; ไม่มีเส้นทาง derive เป็น Admin สมาชิกที่ไม่มี override มี version 0 เพื่อให้คำสั่งครั้งแรกตรวจ conflict ได้
+
+| บทบาทแอป | ค่าเริ่มต้นของหน้าที่เปิด | Authority ที่ implement แล้ว |
+|---|---|---|
+| Admin | ทุกหน้าและแก้ให้ลดลงไม่ได้ | ความสามารถธุรกิจทั้งหมดที่รุ่นนี้มี และ `access.manage`; ยังคงกฎ assignment, self-review/self-approval และ transition checks |
+| User | ว่างจน Admin กำหนด | อ่านข้อมูลในองค์กรตามหน้าที่เปิด จัดประชุม ร่างมติ มอบหมาย ทำงานที่ตนเป็นเจ้าของ และยื่นคำขอ |
+| Executive | ว่างจน Admin กำหนด | อ่านข้อมูลในองค์กรตามหน้าที่เปิด อนุญาตเริ่ม อนุมัติเปลี่ยน ตรวจงานที่ได้รับมอบหมาย ปิดมติ และส่งออกรายงาน |
+| Staff | tasks, changes, notifications | เฉพาะ owner assignment ของตน คำขอตน แจ้งเตือนตน และ self directory; page policy จำกัดอยู่ใน dashboard/tasks/changes/notifications |
+
+Page keys ที่รองรับคือ dashboard/meetings/resolutions/tasks/reviews/changes/reports/team/settings/notifications การเปิดหน้าไม่ได้เพิ่ม capability ที่ role ไม่มี และการให้หน้า Team แก่ non-admin ไม่อนุญาตให้แก้สิทธิ์ `roles` แบบ secretary/owner/reviewer/executive ใน DTO เป็น compatibility mapping เท่านั้น: Admin ได้ทั้งสี่, User ได้ secretary/owner, Executive ได้ executive/reviewer, Staff ได้ owner; SQL authorization ไม่เชื่อบทบาทที่ client ส่งมา
+
+`get_workspace_state` คืน `access:{role,pages,policies,policyVersion,members}` และ `users[].accessRole` พร้อมข้อมูลที่ได้รับสิทธิ์ หน้า Tasks/Reviews ได้รายละเอียดงาน, Dashboard/Reports ได้ projection สำหรับการนับและรายงานเมื่อไม่มีหน้ารายละเอียด, Changes อย่างเดียวได้ task context ขั้นต่ำพร้อม rowVersion และมติที่เชื่อม ไม่มี evidence/updates/description/deliverable/criteria หรือ reviewer fields ใน task summaries, ไม่มี content/closureCriteria ใน resolution summaries, ไม่มี agenda ใน meeting summaries Staff ได้เฉพาะงานตนและบริบทมติขั้นต่ำ ไม่มีประชุม คนอื่น audit หรือ settings; audit คืนเฉพาะ Admin
+
+Directory ปกติคืน self และชื่อ/หน่วยงานบุคคลที่ข้อมูลที่เห็นอ้างถึง การมี Team เปิดจึงคืน active directory ทั้งองค์กร ผู้มี `task.assign` ได้ labels ของผู้รับงาน/ผู้ตรวจที่มี capability ใช้งานจริงเพื่อเลือกมอบหมาย แม้ Team ปิดอยู่ การส่งออกปัจจุบันยังไม่ใช่ official temporal KPI/report artifact ตามแบบเต็ม
+
+`workspace_command` เพิ่ม `set_member_role {profileId,role,expectedVersion}` และ `set_role_pages {role,pages,expectedVersion}` โดย derive actor จาก session, ตรวจ active membership/องค์กร/บทบาท Admin, ตรวจ page Team และ lock organization guard แบบ exclusive ก่อนอ่านสิทธิ์ คำสั่งรองรับ idempotency และ conflict checks ปฏิเสธเป้าหมายที่ถูกปิด/ระงับ/ถอนสมาชิก และป้องกันการลดบทบาท Admin ที่ยังใช้งานได้คนสุดท้าย Workflow commands เดิมยังอยู่หลังขอบเขต private และถูกตรวจ permission/page อีกครั้ง ไม่เปิด direct table access
+
+Admin ของแอปคนแรกต้องถูกแต่งตั้งผ่าน [setup-admin.sql](supabase/setup-admin.sql) โดยผู้ดูแลฐานข้อมูลระบุอีเมล Auth และ UUID องค์กรที่มีอยู่แล้ว บัญชีต้องมี active identity/profile/membership สคริปต์เรียก private bootstrap ภายใต้ locks ไม่สร้าง Auth user/องค์กร/สมาชิกใหม่ ไม่เปิดคืนสิทธิ์ที่ถูกปิด และรันซ้ำกับ Admin เดิมได้ การเป็นเลขานุการเดิมไม่ได้เลื่อนเป็น Admin ส่วน `/team` จัดการเฉพาะบทบาทของสมาชิกที่มีอยู่ ไม่ใช่หน้าสร้าง Auth users รายละเอียด provisioning และการแก้ปัญหาเลขานุการอยู่ใน [คู่มือ Supabase](supabase/README.md)
+
+ผลที่รันแล้วใน local PGlite: role/access 16 กลุ่ม, workflow integration 30 checks และ secretary setup 25 checks ผ่าน รวมการรักษาข้อมูลเดิมตอน upgrade, default policies ว่าง, scope/negative RPC, page summaries/context, bootstrap, last-admin และ self-review การทดสอบ competing transactions ใน PGlite ถูกจัดคิว จึงยังไม่ยืนยัน race/lock contention ของ PostgreSQL หลาย sessions จริง รอบนี้ไม่ได้รัน SQL บน hosted Supabase และไม่ได้ยืนยัน hosted Auth/Storage ผลเหล่านี้ไม่เท่ากับผ่าน acceptance plan เต็มใน §18
+
+เมื่อ `resolution.draft` ใช้งานได้แต่หน้า Meetings ปิดอยู่ read RPC คืน meeting selectors เฉพาะ `{id,title,number}` เพื่อเลือกประชุมต้นทางตอนร่างมติ หาก Dashboard/Reports เปิดอยู่จะใช้ summary projection เดิม ไม่มี agenda หรือสิทธิ์แก้ประชุมเพิ่ม และ Staff ไม่ได้รับ meeting selectors
 
 ### 17.1 เปลี่ยนจาก mock อย่างไร
 

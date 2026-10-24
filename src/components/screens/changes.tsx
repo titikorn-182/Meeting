@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { AccessLink as Link } from "@/components/app-shell";
 import { useState } from 'react';
 import { ArrowRight, CalendarClock, Check, CircleHelp, FilePenLine, History, Plus, Search, X } from 'lucide-react';
 import { useDemo } from '@/components/demo-provider';
@@ -24,7 +24,7 @@ export function ChangesScreen({ initialTaskId, initialStatus }: { initialTaskId?
   const [selectedId, setSelectedId] = useState('');
   const [showCreate, setShowCreate] = useState(Boolean(initialTaskId));
   const [taskId, setTaskId] = useState(initialTaskId ?? '');
-  const [requestType, setRequestType] = useState<ChangeRequest['type']>('deadline');
+  const [requestTypeDraft, setRequestType] = useState<ChangeRequest['type']>('deadline');
   const [proposedValue, setProposedValue] = useState('');
   const [reason, setReason] = useState('');
   const [decisionDraft, setDecisionDraft] = useState({ id: '', note: '' });
@@ -33,10 +33,11 @@ export function ChangesScreen({ initialTaskId, initialStatus }: { initialTaskId?
   const selectedTask = state.tasks.find((task) => task.id === selected?.taskId);
   const requestedTask = state.tasks.find((task) => task.id === taskId);
   const ownerOptions = eligibleOwners.filter((person) => person.id !== requestedTask?.ownerId && person.id !== requestedTask?.reviewerId);
+  const requestType = requestTypeDraft === 'owner' && !ownerOptions.length ? 'deadline' : requestTypeDraft;
   const changePeople = [...users, ...eligibleOwners];
-  const allowedTasks = state.tasks.filter((task) => !['accepted', 'cancelled'].includes(task.status) && (mode === 'supabase' ? permissions.includes('task.assign') || task.ownerId === state.currentUserId : state.activeRole === 'secretary' || (state.activeRole === 'owner' && task.ownerId === state.currentUserId)));
-  const mayCreate = mode === 'supabase' ? permissions.includes('change.request') : state.activeRole === 'secretary' || state.activeRole === 'owner';
-  const mayDecide = (mode === 'supabase' ? permissions.includes(selected?.type === 'deadline' ? 'deadline.approve' : selected?.type === 'owner' ? 'assignment.approve' : 'scope.approve') : state.activeRole === 'secretary' || state.activeRole === 'executive') && selected?.requestedById !== state.currentUserId && selected?.status === 'pending';
+  const allowedTasks = state.tasks.filter((task) => !['accepted', 'cancelled'].includes(task.status) && (permissions.includes('workspace.read_all') || task.ownerId === state.currentUserId));
+  const mayCreate = permissions.includes('change.request');
+  const mayDecide = permissions.includes(selected?.type === 'deadline' ? 'deadline.approve' : selected?.type === 'owner' ? 'assignment.approve' : 'scope.approve') && selected?.requestedById !== state.currentUserId && selected?.status === 'pending';
   const decisionNote = selected && decisionDraft.id === selected.id ? decisionDraft.note : '';
   const pending = state.changes.filter((item) => item.status === 'pending').length;
 
@@ -56,8 +57,8 @@ export function ChangesScreen({ initialTaskId, initialStatus }: { initialTaskId?
     {showCreate && <Panel title="สร้างคำขอเปลี่ยนแปลง" description="เงื่อนไขปัจจุบันยังมีผลจนกว่าคำขอจะได้รับอนุมัติ" action={<Button disabled={busy} variant="ghost" size="sm" onClick={() => setShowCreate(false)} aria-label="ปิดแบบคำขอ"><X size={17} /></Button>}>
       <form onSubmit={submitRequest} className="space-y-5">
         {!mayCreate && <div className="inline-alert warning text-sm">บัญชีนี้ยังไม่มีสิทธิยื่นคำขอสำหรับงานที่เลือก โปรดติดต่อผู้ดูแลสิทธิ</div>}
-        <div className="form-grid"><Field label="งานที่ต้องการเปลี่ยนแปลง" htmlFor="change-task" required><select id="change-task" className="select w-full" value={taskId} required disabled={!mayCreate} onChange={(event) => { setTaskId(event.target.value); setProposedValue(''); }}><option value="">เลือกงาน</option>{allowedTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></Field><Field label="ประเภทคำขอ" htmlFor="change-type" required><select id="change-type" className="select w-full" value={requestType} disabled={!mayCreate} onChange={(event) => { setRequestType(event.target.value as ChangeRequest['type']); setProposedValue(''); }}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field></div>
-        {requestedTask && <div className="inline-alert text-sm"><CalendarClock size={18} /><span>{requestType === 'deadline' ? `กำหนดปัจจุบัน ${formatThaiDate(requestedTask.dueDate)} · กำหนดเดิม ${formatThaiDate(requestedTask.originalDueDate)}` : requestType === 'owner' ? `ผู้รับผิดชอบปัจจุบัน: ${users.find((person) => person.id === requestedTask.ownerId)?.name}` : `ผลส่งมอบปัจจุบัน: ${requestedTask.description}`}</span></div>}
+        <div className="form-grid"><Field label="งานที่ต้องการเปลี่ยนแปลง" htmlFor="change-task" required><select id="change-task" className="select w-full" value={taskId} required disabled={!mayCreate} onChange={(event) => { setTaskId(event.target.value); setProposedValue(''); setRequestType('deadline'); }}><option value="">เลือกงาน</option>{allowedTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></Field><Field label="ประเภทคำขอ" htmlFor="change-type" required><select id="change-type" className="select w-full" value={requestType} disabled={!mayCreate} onChange={(event) => { setRequestType(event.target.value as ChangeRequest['type']); setProposedValue(''); }}>{Object.entries(typeLabels).filter(([value]) => value !== 'owner' || ownerOptions.length > 0).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field></div>
+        {requestedTask && <div className="inline-alert text-sm"><CalendarClock size={18} /><span>{requestType === 'deadline' ? `กำหนดปัจจุบัน ${formatThaiDate(requestedTask.dueDate)} · กำหนดเดิม ${formatThaiDate(requestedTask.originalDueDate)}` : requestType === 'owner' ? `ผู้รับผิดชอบปัจจุบัน: ${users.find((person) => person.id === requestedTask.ownerId)?.name}` : requestedTask.description ? `ผลส่งมอบปัจจุบัน: ${requestedTask.description}` : 'ขอบเขตปัจจุบันไม่ได้แสดงในมุมมองนี้'}</span></div>}
         {requestType === 'deadline' ? <Field label="กำหนดส่งใหม่ที่เสนอ" htmlFor="proposed-date" required><input id="proposed-date" className="input max-w-xs" type="date" required min={requestedTask?.dueDate} value={proposedValue} onChange={(event) => setProposedValue(event.target.value)} /></Field> : requestType === 'owner' ? <Field label="ผู้รับผิดชอบใหม่ที่เสนอ" htmlFor="proposed-owner" required><select id="proposed-owner" className="select w-full" required value={proposedValue} onChange={(event) => setProposedValue(event.target.value)}><option value="">เลือกผู้รับผิดชอบ</option>{ownerOptions.map((person) => <option key={person.id} value={person.id}>{person.name} · {person.unit}</option>)}</select></Field> : <Field label="ขอบเขตหรือผลส่งมอบใหม่ที่เสนอ" htmlFor="proposed-scope" required><textarea id="proposed-scope" className="textarea" rows={3} required value={proposedValue} onChange={(event) => setProposedValue(event.target.value)} /></Field>}
         {requestType === 'owner' && requestedTask && !ownerOptions.length && <p className="text-xs leading-6 muted">ยังไม่มีผู้รับผิดชอบคนอื่นที่เลือกได้ โปรดติดต่อเลขานุการหรือผู้ดูแลสิทธิเพื่อตรวจรายชื่อผู้รับมอบหมาย</p>}
         <Field label="เหตุผลและผลกระทบ" htmlFor="change-reason" required><textarea id="change-reason" className="textarea" rows={3} required value={reason} onChange={(event) => setReason(event.target.value)} placeholder="ระบุความจำเป็น สิ่งที่เปลี่ยน และผลต่อการส่งมอบงาน" /></Field>

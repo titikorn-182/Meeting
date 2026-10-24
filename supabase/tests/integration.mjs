@@ -30,14 +30,17 @@ try {
  for(const [name,id] of Object.entries(actors)) await query('insert into auth.users(id,email) values($1,$2)',[id,`${name}@example.test`]);
  org=(await query("select private.bootstrap_workspace($1,'Test organization','Secretary','สำนักงาน',array['secretary']) as id",[actors.secretary])).rows[0].id;
  for(const role of ['owner','owner2','reviewer','executive']) {
-  people[role]=(await query('select private.provision_member($1,$2,$3,$4,$5::text[]) as id',[org,actors[role],role,'สำนักงาน',[role==='owner2'?'owner':role]])).rows[0].id;
+  people[role]=(await query('select private.provision_member($1,$2,$3,$4,$5::text[]) as id',[org,actors[role],role,'สำนักงาน',role==='reviewer'?['reviewer','executive']:[role==='owner2'?'owner':role]])).rows[0].id;
  }
  people.secretary=(await query('select profile_id from public.auth_identities where auth_user_id=$1',[actors.secretary])).rows[0].profile_id;
  otherOrg=(await query("select private.bootstrap_workspace($1,'Other organization','Outsider','Other unit',array['secretary']) as id",[actors.outsider])).rows[0].id;
+ // Workflow regression fixtures explicitly configure pages as database administrator.
+ // Production User/Executive defaults remain empty until their Admin chooses pages.
+ await query("insert into private.role_page_policies(organization_id,role,pages) values($1,'user',$2::text[]),($1,'executive',$3::text[])",[org,['dashboard','meetings','resolutions','tasks','changes','notifications'],['dashboard','meetings','resolutions','tasks','reviews','changes','reports','team','notifications']]);
  await check('signup alone does not grant membership',async()=>{await as(actors.unprovisioned);await rejects(()=>snapshot(org),'NO_MEMBERSHIP');});
  await check('cross-organization RPC read denied',async()=>{await as(actors.outsider);await rejects(()=>snapshot(org),'NO_MEMBERSHIP');});
  await check('direct tables and private provisioning are not callable',async()=>{await as(actors.secretary);await rejects(()=>query('select * from public.task_cycles'),'permission denied');await rejects(()=>query('select private.bootstrap_workspace($1,$2,$3,$4)',[actors.secretary,'x','x','x']),'permission denied');});
- await check('workspace starts empty with real organization directory',async()=>{await as(actors.secretary);const s=await snapshot(org);assert.equal(s.state.tasks.length,0);assert.deepEqual(s.roles,['secretary']);assert.equal(s.users.length,5);assert.deepEqual(s.units,['สำนักงาน']);assert(!s.permissions.includes('execution.authorize'));});
+ await check('workspace starts empty with qualified assignment selector labels',async()=>{await as(actors.secretary);const s=await snapshot(org);assert.equal(s.state.tasks.length,0);assert.deepEqual(s.roles,['secretary','owner']);assert.equal(s.access.role,'user');assert.equal(s.users.length,5);assert.deepEqual(s.units,['สำนักงาน']);assert(!s.permissions.includes('execution.authorize'));});
  await check('meeting and resolution persist as normalized records',async()=>{
   await as(actors.secretary);
   meetingId=(await command(org,'add_meeting',{title:'Meeting test',committee:'คณะกรรมการทดสอบ',number:'1/2569',date:'2026-11-01',time:'09:00',location:'ห้องประชุม',status:'scheduled',agenda:[]})).id;
@@ -48,16 +51,14 @@ try {
  await check('publishing requires explicit execution authority',async()=>{await as(actors.secretary);await rejects(()=>command(org,'add_task',taskInput()),'AUTHORIZATION_REQUIRED');await rejects(()=>command(org,'authorize_resolution',{id:resolutionId,expectedVersion:1,reason:'start'}),'FORBIDDEN');});
  await check('authority is distinct and tasks publish with complete facts',async()=>{await as(actors.executive);await command(org,'authorize_resolution',{id:resolutionId,expectedVersion:1,reason:'Approved authority'});await as(actors.secretary);taskId=(await command(org,'add_task',taskInput())).id;const s=await snapshot(org);assert.equal(s.state.tasks[0].status,'assigned');assert.equal(s.state.tasks[0].rowVersion,1);assert(s.state.tasks[0].stableId!==taskId);});
  await check('owners see only assigned tasks and minimal parent context',async()=>{await as(actors.owner2);assert.equal((await snapshot(org)).state.tasks.length,0);await as(actors.owner);const s=await snapshot(org);assert.equal(s.state.tasks.length,1);assert.equal(s.state.resolutions[0].partialContext,true);assert.notEqual(s.state.resolutions[0].content,'A verifiable resolution');});
- await check('owner transfer picker exposes only minimal eligible same-organization candidates',async()=>{
-  await as(actors.owner);const s=await snapshot(org);assert(s.eligibleOwners.some(p=>p.id===people.owner2));assert(!s.users.some(p=>p.id===people.owner2));
-  assert.deepEqual(s.eligibleOwners.map(p=>p.id).sort(),[people.owner,people.owner2].sort());
-  for(const candidate of s.eligibleOwners) assert.deepEqual(Object.keys(candidate).sort(),['id','name','unit']);
+ await check('staff directory and transfer candidates contain no other people',async()=>{
+  await as(actors.owner);const s=await snapshot(org);assert.deepEqual(s.eligibleOwners,[]);assert.deepEqual(s.users.map(p=>p.id),[people.owner]);
   await as(actors.reviewer);assert.deepEqual((await snapshot(org)).eligibleOwners,[]);
  });
- await check('partial parent visibility does not expose resolution authorization audit text',async()=>{
-  await as(actors.secretary);const full=await snapshot(org);assert(full.state.audit.some(e=>e.targetId===resolutionId&&e.detail==='Approved authority'));
-  await as(actors.owner);const partial=await snapshot(org);assert(!partial.state.audit.some(e=>e.targetId===resolutionId));
-  assert(!partial.state.audit.some(e=>e.detail.includes('Approved authority')));assert(partial.state.audit.some(e=>e.targetId===taskId));
+ await check('staff receives no organization or task audit records',async()=>{
+  await admin();assert((await query('select count(*)::int n from private.audit_events where entity_id=$1 and detail=$2',[resolutionId,'Approved authority'])).rows[0].n>0);
+  await as(actors.owner);const partial=await snapshot(org);assert.deepEqual(partial.state.audit,[]);
+  assert.equal(partial.state.resolutions[0].content,undefined);assert.deepEqual(partial.state.meetings,[]);assert.deepEqual(partial.state.settings,{});
  });
  await check('start requires acknowledgment and rejects wrong owner',async()=>{await as(actors.owner2);await rejects(()=>command(org,'acknowledge_task',{id:taskId,expectedVersion:1}),'NOT_FOUND');await as(actors.owner);await rejects(()=>command(org,'transition_task',{id:taskId,status:'in_progress',expectedVersion:1}),'ACKNOWLEDGMENT_REQUIRED');});
  await check('idempotent acknowledgment retries do not create extra writes',async()=>{await as(actors.owner);const key=randomUUID(),payload={id:taskId,expectedVersion:1};const first=await command(org,'acknowledge_task',payload,key);assert.deepEqual(await command(org,'acknowledge_task',payload,key),first);assert.equal((await snapshot(org)).state.tasks[0].rowVersion,2);await rejects(()=>command(org,'acknowledge_task',{...payload,expectedVersion:2},key),'IDEMPOTENCY_CONFLICT');});
@@ -117,6 +118,7 @@ try {
   await as(actors.reviewer);await rejects(()=>command(org,'transition_task',{id:secondTask,status:'accepted',expectedVersion:12,criterionResults:[true,true]}),'SELF_REVIEW_NOT_ALLOWED');
  });
  await check('policy changes are versioned and unavailable email integration cannot be enabled',async()=>{
+  await admin();await query('select private.bootstrap_admin($1,$2)',['secretary@example.test',org]);
   await as(actors.secretary);await rejects(()=>command(org,'update_settings',{patch:{emailNotifications:true}}),'EMAIL_NOT_AVAILABLE');await rejects(()=>command(org,'update_settings',{patch:{reviewDays:null}}),'VALIDATION_FAILED');await rejects(()=>command(org,'update_settings',{patch:{reminderDays:[null]}}),'VALIDATION_FAILED');await command(org,'update_settings',{patch:{reviewDays:5}});assert.equal((await snapshot(org)).state.settings.reviewDays,5);
   await admin();assert.equal((await query("select count(*)::int n from public.policy_versions where organization_id=$1 and policy_key='tracking'",[org])).rows[0].n,2);
  });

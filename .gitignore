@@ -11,3 +11,4 @@ coverage/
 *.log
 .npm-cache/
 .test-artifacts/
+supabase/*.local.sql

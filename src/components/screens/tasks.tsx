@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { AccessLink as Link } from "@/components/app-shell";
 import { useMemo, useState } from 'react';
 import { ArrowRight, CheckCheck, ClipboardList, FileDown, Search } from 'lucide-react';
 import { useDemo } from '@/components/demo-provider';
@@ -14,7 +14,7 @@ export const taskStatusLabels: Record<TaskStatus, string> = {
 };
 
 export function TasksScreen({ initialStatus, initialScope }: { initialStatus?: string; initialScope?: string }) {
-  const { state, mode, permissions, users, today, units } = useDemo();
+  const { state, access, mode, permissions, users, today, units } = useDemo();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState(initialStatus ?? 'all');
   const [scope, setScope] = useState(initialScope ?? (initialStatus ? 'all' : 'mine'));
@@ -33,7 +33,7 @@ export function TasksScreen({ initialStatus, initialScope }: { initialStatus?: s
     return status === 'all' || task.status === status;
   }), [query, scope, unit, status, state, today]);
   const overdueCount = state.tasks.filter((task) => isOverdue(task, today)).length;
-  const mineCount = state.tasks.filter((task) => task.ownerId === state.currentUserId && task.status !== 'accepted' && task.status !== 'cancelled').length;
+  const mineCount = state.tasks.filter((task) => task.ownerId === state.currentUserId).length;
 
   return <div className="page-stack">
     <PageHeader title="งานตามมติ" description="ติดตามงาน รับทราบการมอบหมาย และรายงานผลให้ครบตามเกณฑ์">
@@ -41,10 +41,10 @@ export function TasksScreen({ initialStatus, initialScope }: { initialStatus?: s
     </PageHeader>
 
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="tabs" aria-label="ขอบเขตงาน">
+      {access.role === 'staff' ? <p className="text-sm font-medium">งานของฉันทั้งหมด <span className="tabular-nums">{mineCount}</span> งาน</p> : <div className="tabs" aria-label="ขอบเขตงาน">
         <button className={`tab ${scope === 'all' ? 'active' : ''}`} aria-pressed={scope === 'all'} onClick={() => setScope('all')}>งานทั้งหมด <span>{state.tasks.length}</span></button>
         <button className={`tab ${scope === 'mine' ? 'active' : ''}`} aria-pressed={scope === 'mine'} onClick={() => setScope('mine')}>งานของฉัน <span>{mineCount}</span></button>
-      </div>
+      </div>}
       <p className="text-small muted">{mode === 'demo' ? 'ข้อมูลตัวอย่าง' : 'ข้อมูลตามสิทธิของคุณ'} ณ {formatThaiDate(today)}</p>
     </div>
 
