@@ -28,6 +28,7 @@ export async function GET(request: Request) {
     const client = await clientForUser();
     const { data, error } = await client.rpc('get_workspace_state', requestedOrg ? { p_organization_id: requestedOrg } : {});
     if (error) throw mapDatabaseError(error);
+    if (data && typeof data === 'object' && !('access' in data)) throw new WorkspaceError('SCHEMA_NOT_READY', 503);
     if (!isWorkspaceSnapshot(data)) throw new WorkspaceError('INVALID_RESPONSE', 502);
     return Response.json(data, { headers: responseHeaders });
   } catch (error) { return fail(error); }

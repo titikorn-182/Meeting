@@ -17,8 +17,11 @@ npm run dev
 
 ## เชื่อม Supabase เมื่อพร้อมใส่ API Key
 
-1. สร้าง project และทำตาม [คู่มือติดตั้งฐานข้อมูล](supabase/README.md): รัน [install.sql](supabase/install.sql) ครั้งเดียวใน SQL Editor ของ project ใหม่ ไฟล์นี้รวม migrations ทั้ง 4 ไฟล์แล้ว ไม่ต้องรันไฟล์แยกซ้ำ
+1. สร้าง project และทำตาม [คู่มือติดตั้งฐานข้อมูล](supabase/README.md): รัน [install.sql](supabase/install.sql) ครั้งเดียวใน SQL Editor ของ project ใหม่ ไฟล์นี้รวม migrations 001–005 ทั้ง 5 ไฟล์แล้ว ไม่ต้องรันไฟล์แยกซ้ำ หากติดตั้ง 001–004 อยู่แล้ว ให้รันเฉพาะ [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ครั้งเดียวแทน
 2. สร้างบัญชีใน Supabase Authentication แล้วใช้ [bootstrap.example.sql](supabase/bootstrap.example.sql) ที่แก้ UUID จริงแล้ว เพื่อสร้างองค์กรและมอบบทบาทให้แต่ละบัญชี บัญชี Auth อย่างเดียวยังไม่มีสิทธิ์อ่านงานหรืออนุมัติ
+
+   เมื่อบัญชีมี identity/profile และ membership ที่ยังใช้งานได้แล้ว ให้ผู้ดูแลฐานข้อมูลแก้อีเมลและ UUID องค์กรใน [setup-admin.sql](supabase/setup-admin.sql) เพื่อแต่งตั้ง Admin ของแอปคนแรกอย่างชัดเจน จากนั้น Admin กำหนดบทบาทและหน้าใช้งานที่ `/team` สคริปต์นี้ไม่สร้าง Auth user หรือองค์กร และไม่เปิดคืน membership ที่ถูกปิด เลขานุการเดิมไม่ถูกยกระดับเป็น Admin อัตโนมัติ
+
 3. คัดลอก [.env.example](.env.example) เป็น .env.local แล้วกรอก:
 
 ~~~dotenv
@@ -42,6 +45,7 @@ NEXT_PUBLIC_SUPABASE_ORGANIZATION_ID=
 | mode=supabase แต่ URL/Key ไม่ครบ | หน้ารอการตั้งค่า; ไม่แสดงข้อมูลจำลอง |
 | ตั้งค่าครบแต่ยังไม่ login | แสดงทางไปเข้าสู่ระบบ |
 | login แล้วแต่ไม่มี membership/grant | แจ้งให้รับสิทธิ์จากผู้ดูแล; เปลี่ยนบัญชีได้ |
+| มีบทบาท User/Executive แต่ยังไม่มีหน้าที่เปิด | แจ้งว่ารอ Admin กำหนดหน้าที่ `/team`; ไม่ต้องติดตั้งฐานข้อมูลซ้ำ |
 | ตารางยังไม่ติดตั้ง / เครือข่ายขาด | แจ้งเหตุและให้โหลดใหม่; ไม่แสดงการบันทึกสำเร็จเทียม |
 | เชื่อมครบ | อ่านตามสิทธิ์ ทุกการเขียนผ่าน transactional RPC |
 
@@ -58,9 +62,15 @@ NEXT_PUBLIC_SUPABASE_ORGANIZATION_ID=
 | คำขอเปลี่ยน | ขอ/พิจารณากำหนด เจ้าของ และคำอธิบายขอบเขต คำขอค้างไม่มีผลจริง |
 | ปิดมติ | ตรวจสิทธิ์และ checklist ใน transaction; ระยะนี้ทุก linked task ต้องผ่าน |
 | รายงาน | ผลรวมปัจจุบันและ CSV จากการอ่านข้อมูลใหม่ ไม่ใช่ KPI ย้อนหลังที่รับรอง |
-| บุคลากร / แจ้งเตือน / ตั้งค่า | directory ตาม scope, in-app events, mark read และ policy versions |
+| บุคลากร / แจ้งเตือน / ตั้งค่า | Admin จัดการบทบาทและสิทธิ์รายหน้า, directory ตาม scope, in-app events, mark read และ policy versions |
 
-บัญชีหนึ่งมีหลายบทบาทได้ หน้าจอโหมดจริงไม่สลับบุคคล ทุกการเขียนตรวจสิทธิ์ในฐานข้อมูลอีกครั้ง ตาราง public เปิด RLS และปิด direct client access ใช้ read/write RPC ที่ตรวจ tenant, session และ assignment แทนการแก้ status จาก browser
+หนึ่งสมาชิกมีบทบาทแอปหลักหนึ่งค่าในแต่ละองค์กร: **Admin** เข้าได้ทุกหน้าและจัดการสิทธิ์, **User** และ **Executive** เริ่มต้นโดยยังไม่มีหน้าที่เปิดจน Admin เลือก, **Staff** เริ่มที่งานของฉัน/คำขอเปลี่ยนแปลง/แจ้งเตือนและเห็นเฉพาะข้อมูลตนเอง Admin เพิ่มหน้า Staff ได้เฉพาะภาพรวม หรือปิดหน้าในกลุ่มนี้ การเปิดหน้าไม่เพิ่มความสามารถธุรกิจที่บทบาทไม่มี และทุกบทบาทยังต้องผ่านกฎห้ามตรวจผลงานตนเองหรืออนุมัติคำขอตนเอง
+
+ชื่อ workflow เดิม secretary/owner/reviewer/executive ยังอยู่ใน DTO เพื่อรองรับหน้าจอ แต่ SQL ใช้บทบาทแอปและ page policy ปัจจุบันเป็น authority หากยังไม่มี override จะตีความ secretary → User, executive → Executive, owner/reviewer → Staff โดยไม่แต่งตั้ง Admin เอง Admin ของแอปเป็นคนละแนวคิดกับผู้ดูแลฐานข้อมูลทางเทคนิค และหน้า `/team` ไม่สร้างบัญชี Auth หรือ membership ใหม่ ดูขั้นตอนตั้งเลขานุการเดิมและตั้ง Admin ใน [คู่มือ Supabase](supabase/README.md)
+
+Dashboard/Reports ที่เปิดโดยไม่มีหน้ารายละเอียดจะรับข้อมูลสรุปที่ได้รับสิทธิ์; Changes อย่างเดียวรับบริบทงานขั้นต่ำพร้อม version เพื่อยื่นคำขอ ไม่มีหลักฐาน/ข้อความงาน/เกณฑ์เต็มจากหน้าที่ถูกปิด Staff ไม่ได้รับงานคนอื่น directory คนอื่น หรือ audit/settings ขององค์กร หน้าจอโหมดจริงไม่สลับบุคคล ทุกการเขียนตรวจสิทธิ์และหน้าที่เปิดในฐานข้อมูลอีกครั้ง ตาราง public เปิด RLS และปิด direct client access ใช้ read/write RPC ที่ตรวจ tenant, session และ assignment แทนการแก้ status จาก browser
+
+เมื่อเปิดเฉพาะทะเบียนมติ ผู้มีสิทธิ์ร่างมติยังเลือกประชุมต้นทางจากชื่อ/เลขครั้งขั้นต่ำได้ โดยไม่ได้เปิดรายละเอียดหรือคำสั่งของหน้าประชุม
 
 ยังต้องพัฒนาต่อ: ไฟล์จริงพร้อม scan/Storage gateway, สิทธิ์ละเอียด committee/record classification, dependencies/blockers/recurrence, ยุติ/เปิดใหม่/ทดแทน, วันกำหนดหลายรูปแบบ/ปฏิทินวันทำการ, temporal KPI/snapshots, import/retention, email/scheduler และ backup/restore ดูขอบเขตใน [supabase/README.md](supabase/README.md) ปุ่มอัปโหลดไฟล์จริงถูกปิดไว้ ไม่แสดงผลสำเร็จเทียม
 
@@ -76,8 +86,10 @@ NEXT_PUBLIC_SUPABASE_ORGANIZATION_ID=
 | src/proxy.ts / src/app/auth/ / src/app/login/ | Cookie refresh, login/logout และ safe callback |
 | src/app/api/workspace/route.ts | ตรวจ session, same-origin, validation, no-store |
 | src/lib/workspace-validation.ts | Allowlist คำสั่ง/fields และ safe error mapping; SQL ตรวจซ้ำ |
+| src/lib/access-control.ts | สัญญาบทบาทแอป/page keys และสิทธิ์สำหรับ UI; ฐานข้อมูลตรวจซ้ำ |
 | supabase/migrations/ | ตารางสัมพันธ์, grants/RLS, helpers และ RPC |
 | supabase/tests/integration.mjs | รัน SQL จริงด้วย PostgreSQL/PGlite โดยไม่ใช้ API Key |
+| supabase/tests/role-access.mjs | บทบาท/Page policies, Staff scope, Admin bootstrap และ negative RPC cases |
 
 database.types.ts เป็น typed RPC contract ของ migrations ที่ commit ไม่ใช่ generated table types จาก remote project เมื่อ deploy ให้เทียบ/regenerate จาก schema จริง
 
@@ -87,16 +99,21 @@ database.types.ts เป็น typed RPC contract ของ migrations ที่
 npm run typecheck
 npm test
 npm run test:db
+node supabase/tests/role-access.mjs
+node supabase/tests/setup-secretary.mjs
 npm run build
 npm run start
 ~~~
 
 - Unit tests: demo workflow, config ที่ผิด/ขาด, secret-key guard, safe redirect, command validation, dates, same-origin และ safe errors
 - DB tests: migrations จริงใน PostgreSQL/WASM พร้อม Auth stubs, FK/grants, scope, idempotency, versions, frozen submissions, ผลตรวจรายเกณฑ์, closure, changes และ revocation
+- Role/access tests: 16 กลุ่มผ่าน; workflow integration 30 checks และ secretary setup 25 checks ผ่านในเครื่อง ครอบคลุมบทบาททั้ง 4, ไม่มี auto-admin, page defaults ว่าง, summary/context ของแต่ละหน้า, Staff scope, direct-RPC denial และการคง Admin คนสุดท้าย
 - Login visual checks: เปิด dev server แล้วรัน npm run test:auth-ui ใช้ Chrome ที่ติดตั้งอยู่; กำหนด AUTH_VISUAL_BASE_URL และ AUTH_VISUAL_MODE=demo/configured/missing เพื่อเลือกสภาพแวดล้อม ไม่ส่งรหัสผ่านไปบริการจริง
 - Workspace smoke: npm run test:workspace-ui ทดสอบสร้างประชุมพร้อมวาระ โหลดใหม่ และตรวจรับงานใน browser context ของ demo ที่แยกจากผู้ใช้
 - NEXT_DIST_DIR=.next-ชื่อทดสอบ ใช้แยก preview build ระหว่างทดสอบ ไม่ต้องตั้งในการใช้งานปกติ
 
 ก่อนนำร่องต้องทดสอบ hosted Auth/session ด้วยบัญชีหลายบทบาท, revoke แข่ง mutation ใน PostgreSQL หลาย sessions และนโยบาย/backup จริง การผ่าน PGlite ไม่ใช่การรับรอง hosted services หรือ production SLA
+
+รอบนี้ไม่ได้รัน migrations หรือเปลี่ยนบัญชีบน Supabase hosted การทดสอบ competing role changes ใน PGlite เป็น transactions ที่จัดคิวต่อกัน ยังไม่ใช่การทดสอบ lock contention หลาย database sessions จริง [database.md](database.md) และ PRD อธิบายโมเดลเป้าหมายที่กว้างกว่าฟีเจอร์ที่เชื่อมแล้วในรุ่นนี้
 
 อ้างอิง [Supabase SSR สำหรับ Next.js](https://supabase.com/docs/guides/auth/server-side/creating-a-client?queryGroups=framework&framework=nextjs) และ [Supabase migrations](https://supabase.com/docs/guides/local-development/database-migrations)

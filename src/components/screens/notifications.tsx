@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { AccessLink as Link } from "@/components/app-shell";
 import { ArrowRight, Bell, CalendarClock, Check, CheckCheck, ClipboardCheck, FilePenLine, Inbox, UserRoundCheck } from 'lucide-react';
 import { useDemo } from '@/components/demo-provider';
 import { Badge, Button, EmptyState, PageHeader, Panel } from '@/components/ui';

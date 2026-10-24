@@ -1,4 +1,5 @@
 import type { DemoState, Role, User } from './types';
+import { isAccessControl, type AccessControl } from './access-control';
 
 /** Connected read DTO. IDs in task/resolution screens identify execution cycles. */
 export interface WorkspaceSnapshot {
@@ -9,6 +10,7 @@ export interface WorkspaceSnapshot {
   organization: { id: string; name: string };
   permissions: string[];
   roles: Role[];
+  access: AccessControl;
 }
 
 export const workspaceOperations = [
@@ -16,6 +18,7 @@ export const workspaceOperations = [
   'create_change_request', 'decide_change', 'add_resolution', 'authorize_resolution',
   'add_task', 'close_resolution', 'add_meeting', 'update_settings',
   'mark_notification_read', 'mark_all_read',
+  'set_member_role', 'set_role_pages',
 ] as const;
 export type WorkspaceOperation = typeof workspaceOperations[number];
 export interface WorkspaceCommand {
@@ -48,7 +51,8 @@ export function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot 
     && !!row.organization && typeof row.organization.id === 'string'
     && typeof row.organization.name === 'string'
     && Array.isArray(row.permissions) && row.permissions.every(p => typeof p === 'string')
-    && Array.isArray(row.roles);
+    && Array.isArray(row.roles) && isAccessControl(row.access)
+    && row.access.members[state.currentUserId]?.role === row.access.role;
 }
 
 export const workspaceErrors: Record<string, string> = {
@@ -77,6 +81,9 @@ export const workspaceErrors: Record<string, string> = {
   INVALID_REVIEWER: 'ผู้ตรวจที่ได้รับมอบหมายไม่มีสิทธิ์ตรวจแล้ว กรุณาติดต่อผู้ดูแลเพื่อมอบหมายใหม่',
   INVALID_UNIT: 'ไม่พบหน่วยงานที่ยังใช้งานอยู่ในพื้นที่ทำงานนี้',
   INVALID_DEADLINE: 'วันที่ขอขยายต้องอยู่หลังกำหนดปัจจุบัน',
+  LAST_ADMIN_REQUIRED: 'ต้องมี Admin ที่ใช้งานได้อย่างน้อยหนึ่งคน กรุณามอบหมาย Admin อีกคนก่อน',
+  PAGE_ACCESS_DENIED: 'บทบาทนี้ยังไม่มีสิทธิ์เข้าหน้านี้ กรุณาติดต่อ Admin',
+  INACTIVE_MEMBER: 'บัญชีนี้ถูกระงับหรือพ้นสมาชิกแล้ว กรุณาให้ผู้ดูแลตรวจสอบ',
 };
 
 export class WorkspaceError extends Error {

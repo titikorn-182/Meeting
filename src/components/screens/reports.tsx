@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { AccessLink as Link } from "@/components/app-shell";
 import { ArrowDownToLine, ArrowRight, ChartNoAxesCombined, FileSpreadsheet, Printer } from 'lucide-react';
 import { useDemo } from '@/components/demo-provider';
 import { Badge, Button, EmptyState, PageHeader, Panel } from '@/components/ui';
@@ -39,6 +39,7 @@ export function ReportsScreen() {
   });
 
   async function exportSource() {
+    if (!permissions.includes('report.export')) throw new Error('บัญชีนี้ยังไม่มีสิทธิส่งออกรายงาน');
     if (mode === 'demo') return { state, users };
     const response = await fetch('/api/workspace', { credentials: 'same-origin', cache: 'no-store' });
     const snapshot: unknown = await response.json();
@@ -93,7 +94,7 @@ export function ReportsScreen() {
   }
 
   return <div className="page-stack">
-    <PageHeader title="รายงานและผลดำเนินงาน" description="ติดตามภาพรวมจากมติถึงงาน พร้อมข้อมูลต้นทางที่ตรวจสอบได้"><Button disabled={exporting || busy || (mode === 'supabase' && !permissions.includes('report.export'))} variant="secondary" onClick={printReport}><Printer size={16} />พิมพ์รายงาน</Button><Button disabled={exporting || busy || (mode === 'supabase' && !permissions.includes('report.export'))} onClick={downloadReport}><ArrowDownToLine size={17} />ส่งออก CSV</Button></PageHeader>
+    <PageHeader title="รายงานและผลดำเนินงาน" description="ติดตามภาพรวมจากมติถึงงาน พร้อมข้อมูลต้นทางที่ตรวจสอบได้"><Button disabled={exporting || busy || !permissions.includes('report.export')} variant="secondary" onClick={printReport}><Printer size={16} />พิมพ์รายงาน</Button><Button disabled={exporting || busy || !permissions.includes('report.export')} onClick={downloadReport}><ArrowDownToLine size={17} />ส่งออก CSV</Button></PageHeader>
     <div className="panel p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><ChartNoAxesCombined size={19} className="text-[#53756b]" /><span className="font-medium">ภาพรวม ณ {formatThaiDate(today)}</span></div><Badge tone="neutral">{mode === 'demo' ? 'สถานะปัจจุบันของข้อมูลตัวอย่าง' : 'ข้อมูลปัจจุบันตามสิทธิของคุณ'}</Badge></div><p className="muted text-small mt-2">{mode === 'demo' ? 'ผลรวมเปลี่ยนตามการดำเนินการในระบบทดลอง และใช้วันอ้างอิงเดียวกับหน้าติดตามงาน' : 'สรุปการติดตามงานปัจจุบัน รายงานนี้ยังไม่ใช่ KPI ย้อนหลังหรือ snapshot ที่รับรองแล้ว'}</p><div className="mt-6 grid grid-cols-2 gap-5 border-t border-[#e0e7e5] pt-5 sm:grid-cols-4">{[{ label: 'งานในขอบเขต', count: filtered.length, color: '#253b40' }, { label: 'ตรวจรับแล้ว', count: accepted.length, color: '#3c7860' }, { label: 'ส่งตรวจ', count: waiting.length, color: '#4b7088' }, { label: 'เกินกำหนด', count: overdue.length, color: '#a14c3f' }].map((metric) => <div key={metric.label}><div className="text-sm text-[#64757a]">{metric.label}</div><div className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: metric.color }}>{metric.count}<span className="ml-2 text-sm font-normal text-[#64757a]">งาน</span></div></div>)}</div></div>
     <Panel title="รายละเอียดรายงาน" action={<span className="muted text-small">หน่วยนับ: งาน</span>}>
       <div className="toolbar mb-5"><select className="select" aria-label="หน่วยงานในรายงาน" value={unit} onChange={(event) => setUnit(event.target.value)}><option value="all">ทุกหน่วยงาน</option>{units.map((name) => <option key={name}>{name}</option>)}</select><select className="select" aria-label="การประชุมต้นทางในรายงาน" value={meetingId} onChange={(event) => setMeetingId(event.target.value)}><option value="all">ทุกการประชุมต้นทาง</option>{state.meetings.map((meeting) => <option key={meeting.id} value={meeting.id}>{meeting.committee} ครั้งที่ {meeting.number}</option>)}</select>{(unit !== 'all' || meetingId !== 'all') && <Button variant="ghost" onClick={() => { setUnit('all'); setMeetingId('all'); }}>ล้างตัวกรอง</Button>}</div>

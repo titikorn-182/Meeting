@@ -1,11 +1,11 @@
 'use client';
 
-import Link from 'next/link';
+import { AccessLink as Link } from "@/components/app-shell";
 import { useState } from 'react';
 import { ArrowRight, Check, CheckCheck, ClipboardCheck, Clock3, ExternalLink, FileCheck2, MessageSquareText, Search, ShieldCheck, Undo2 } from 'lucide-react';
 import { useDemo } from '@/components/demo-provider';
 import { Avatar, Badge, Button, EmptyState, Field, PageHeader, Panel } from '@/components/ui';
-import { daysUntil, formatThaiDate, validateTaskTransition } from '@/lib/workflow';
+import { daysUntil, formatThaiDate } from '@/lib/workflow';
 
 export function ReviewsScreen({ initialTaskId }: { initialTaskId?: string }) {
   const { state, transitionTask, notify, mode, permissions, users, today, busy } = useDemo();
@@ -18,9 +18,10 @@ export function ReviewsScreen({ initialTaskId }: { initialTaskId?: string }) {
   const checked = selected && reviewDraft.taskId === selected.id ? reviewDraft.checked : [];
   const note = selected && reviewDraft.taskId === selected.id ? reviewDraft.note : '';
   const resolution = state.resolutions.find((item) => item.id === selected?.resolutionId);
-  const mayReview = mode === 'supabase' && permissions.includes('submission.review') && selected?.reviewerId === state.currentUserId && selected?.ownerId !== state.currentUserId;
-  const guard = selected ? mode === 'supabase' ? { allowed: Boolean(mayReview && selected.evidence.length && selected.criteria.length), reason: 'เฉพาะผู้ตรวจที่ได้รับมอบหมายและมีสิทธิในงานนี้' } : validateTaskTransition(selected, 'accepted', { role: state.activeRole, userId: state.currentUserId }) : null;
-  const returnGuard = selected ? mode === 'supabase' ? { allowed: Boolean(mayReview), reason: 'เฉพาะผู้ตรวจที่ได้รับมอบหมายและมีสิทธิในงานนี้' } : validateTaskTransition(selected, 'revision', { role: state.activeRole, userId: state.currentUserId }) : null;
+  const mayReview = permissions.includes('submission.review') && selected?.reviewerId === state.currentUserId && selected?.ownerId !== state.currentUserId;
+  const guard = selected ? { allowed: Boolean(mayReview && selected.evidence.length && selected.criteria.length), reason: 'เฉพาะผู้ตรวจที่ได้รับมอบหมายและมีสิทธิในงานนี้' } : null;
+  const returnGuard = selected ? { allowed: Boolean(mayReview), reason: 'เฉพาะผู้ตรวจที่ได้รับมอบหมายและมีสิทธิในงานนี้' } : null;
+  const reviewDays = state.settings?.reviewDays;
   const age = selected?.submittedAt ? Math.max(0, -(daysUntil(selected.submittedAt, today) ?? 0)) : 0;
 
   function setCheck(index: number, value: boolean) {
@@ -50,7 +51,7 @@ export function ReviewsScreen({ initialTaskId }: { initialTaskId?: string }) {
         {queue.length > 0 ? <div className="divide-y divide-[#e0e7e5]">{queue.map((task) => {
           const waitingDays = task.submittedAt ? Math.max(0, -(daysUntil(task.submittedAt, today) ?? 0)) : 0;
           return <button key={task.id} onClick={() => { setSelectedId(task.id); setReviewDraft({ taskId: '', checked: [], note: '' }); }} aria-pressed={selected?.id === task.id} className={`block w-full px-5 py-5 text-left transition-colors hover:bg-[#f5f7f6] ${selected?.id === task.id ? 'bg-[#edf4f0]' : ''}`}>
-            <div className="mb-2 flex items-center justify-between gap-3"><span className="text-xs muted">{task.code}</span><span className={`flex items-center gap-1 text-xs ${waitingDays > state.settings.reviewDays ? 'text-[#a83e32]' : 'text-[#6d797c]'}`}><Clock3 size={12} /> รอ {waitingDays} วัน</span></div>
+            <div className="mb-2 flex items-center justify-between gap-3"><span className="text-xs muted">{task.code}</span><span className={`flex items-center gap-1 text-xs ${Number.isFinite(reviewDays) && waitingDays > reviewDays ? 'text-[#a83e32]' : 'text-[#6d797c]'}`}><Clock3 size={12} /> รอ {waitingDays} วัน</span></div>
             <p className="text-sm font-medium leading-7">{task.title}</p>
             <div className="mt-3 flex items-center justify-between gap-2"><div className="flex items-center gap-2"><Avatar userId={task.ownerId} size="sm" /><span className="text-xs muted">{users.find((person) => person.id === task.ownerId)?.name.split(' ')[0]}</span></div><span className="text-xs muted">{task.evidence.length} หลักฐาน</span></div>
           </button>;
@@ -71,7 +72,7 @@ export function ReviewsScreen({ initialTaskId }: { initialTaskId?: string }) {
 
         <Panel title="บันทึกผลการตรวจ" description="ผลตรวจใช้กับชุดหลักฐานที่ส่งในรอบนี้">
           <div className="space-y-5">
-            {!guard?.allowed && <div className="inline-alert"><ClipboardCheck size={19} /><p className="text-sm leading-6">{guard?.reason} {mode === 'demo' && state.activeRole !== 'reviewer' && 'สลับเป็นบทบาทผู้ตรวจที่แถบด้านบนเพื่อทดลองพิจารณาผลงาน'}</p></div>}
+            {!guard?.allowed && <div className="inline-alert"><ClipboardCheck size={19} /><p className="text-sm leading-6">{guard?.reason}</p></div>}
             <fieldset disabled={!returnGuard?.allowed} className="space-y-3 disabled:opacity-60"><legend className="mb-3 text-sm font-medium">ยืนยันเกณฑ์ตรวจรับ <span className="muted">({checked.length}/{selected.criteria.length})</span></legend>{selected.criteria.map((criterion, index) => <label key={`${selected.id}-${index}`} className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#e0e7e5] p-3.5 text-sm leading-6"><input type="checkbox" checked={checked.includes(index)} onChange={(event) => setCheck(index, event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#173b42]" /><span>{criterion}</span></label>)}</fieldset>
             <Field label="ข้อสรุปหรือรายการที่ต้องแก้ไข" htmlFor="review-note" required><textarea id="review-note" className="textarea" rows={4} disabled={!returnGuard?.allowed} value={note} onChange={(event) => setReviewDraft({ taskId: selected.id, checked, note: event.target.value })} placeholder="บันทึกสิ่งที่ตรวจพบ เหตุผล และรายการแก้ไขที่ชัดเจน" /></Field>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e0e7e5] pt-5"><span className="inline-flex items-center gap-2 text-xs muted"><MessageSquareText size={15} /> ผู้รับผิดชอบจะเห็นเหตุผลนี้</span><div className="flex gap-2"><Button variant="secondary" disabled={busy || (!returnGuard?.allowed || !note.trim())} onClick={() => decide(false)}><Undo2 size={16} /> ส่งกลับแก้ไข</Button><Button disabled={busy || (!guard?.allowed || checked.length !== selected.criteria.length || !note.trim())} onClick={() => decide(true)}><Check size={16} /> รับรองผลงาน</Button></div></div>

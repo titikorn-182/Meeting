@@ -1,4 +1,5 @@
 import { workspaceOperations, WorkspaceError, type WorkspaceCommand } from './workspace';
+import { ACCESS_ROLES, STAFF_PAGE_KEYS, isPageList } from './access-control';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function isUuid(value: unknown): value is string { return typeof value === 'string' && uuidPattern.test(value); }
@@ -111,6 +112,17 @@ export function parseWorkspaceCommand(value: unknown): WorkspaceCommand {
     }
     case 'mark_notification_read': payload = { id: id(p.id) }; break;
     case 'mark_all_read': payload = {}; break;
+    case 'set_member_role': {
+      if (!Number.isSafeInteger(p.expectedVersion) || Number(p.expectedVersion) < 0) return invalid();
+      payload = { profileId: id(p.profileId), role: choice(p.role, ACCESS_ROLES), expectedVersion: p.expectedVersion };
+      break;
+    }
+    case 'set_role_pages': {
+      const role = choice(p.role, ['user', 'executive', 'staff']);
+      if (!isPageList(p.pages) || (role === 'staff' && p.pages.some(page => !STAFF_PAGE_KEYS.includes(page)))) return invalid();
+      payload = { role, pages: p.pages, expectedVersion: version(p.expectedVersion) };
+      break;
+    }
   }
   return { organizationId: id(body.organizationId), operation, payload, idempotencyKey: id(body.idempotencyKey) };
 }
@@ -125,8 +137,8 @@ export function mapDatabaseError(error: { code?: string; message?: string }): Wo
   if (error.code === 'PGRST202' || error.code === '42P01' || error.code === '42883') return new WorkspaceError('SCHEMA_NOT_READY', 503);
   if (error.code === '23505' || error.code === '40001' || error.code === '40P01') return new WorkspaceError('STALE_VERSION', 409);
   if (error.code === '0A000') return new WorkspaceError('FEATURE_NOT_AVAILABLE', 422);
-  const code = error.message?.match(/\b(UNAUTHENTICATED|FORBIDDEN|NO_MEMBERSHIP|NOT_FOUND|STALE_VERSION|INVALID_TRANSITION|VALIDATION_FAILED|MISSING_EVIDENCE|SELF_REVIEW_NOT_ALLOWED|AUTHORIZATION_REQUIRED|DEPENDENCY_NOT_READY|IDEMPOTENCY_CONFLICT|FEATURE_NOT_AVAILABLE|ACKNOWLEDGMENT_REQUIRED|MISSING_CRITERIA|PENDING_SUBMISSION|CLOSURE_NOT_READY|INVALID_ASSIGNEE|INVALID_REVIEWER|INVALID_UNIT|INVALID_DEADLINE)\b/)?.[1];
-  if (code) return new WorkspaceError(code, code === 'UNAUTHENTICATED' ? 401 : ['FORBIDDEN', 'NO_MEMBERSHIP'].includes(code) ? 403 : code === 'NOT_FOUND' ? 404 : ['STALE_VERSION', 'IDEMPOTENCY_CONFLICT'].includes(code) ? 409 : 422);
+  const code = error.message?.match(/\b(UNAUTHENTICATED|FORBIDDEN|NO_MEMBERSHIP|NOT_FOUND|STALE_VERSION|INVALID_TRANSITION|VALIDATION_FAILED|MISSING_EVIDENCE|SELF_REVIEW_NOT_ALLOWED|AUTHORIZATION_REQUIRED|DEPENDENCY_NOT_READY|IDEMPOTENCY_CONFLICT|FEATURE_NOT_AVAILABLE|ACKNOWLEDGMENT_REQUIRED|MISSING_CRITERIA|PENDING_SUBMISSION|CLOSURE_NOT_READY|INVALID_ASSIGNEE|INVALID_REVIEWER|INVALID_UNIT|INVALID_DEADLINE|LAST_ADMIN_REQUIRED|PAGE_ACCESS_DENIED|INACTIVE_MEMBER)\b/)?.[1];
+  if (code) return new WorkspaceError(code, code === 'UNAUTHENTICATED' ? 401 : ['FORBIDDEN', 'NO_MEMBERSHIP', 'PAGE_ACCESS_DENIED', 'INACTIVE_MEMBER'].includes(code) ? 403 : code === 'NOT_FOUND' ? 404 : ['STALE_VERSION', 'IDEMPOTENCY_CONFLICT', 'LAST_ADMIN_REQUIRED'].includes(code) ? 409 : 422);
   if (error.code === '42501') return new WorkspaceError('FORBIDDEN', 403);
   if (error.code?.startsWith('22') || error.code?.startsWith('23')) return new WorkspaceError('VALIDATION_FAILED', 422);
   return new WorkspaceError('CONNECTION_FAILED', 503);

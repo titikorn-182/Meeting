@@ -1,4 +1,5 @@
 /** Screen DTOs shared by the demo and Supabase adapters. Database authorization is authoritative. */
+import type { AccessRole } from './access-control';
 export type Role = 'secretary' | 'owner' | 'reviewer' | 'executive';
 export type TaskStatus = 'assigned' | 'in_progress' | 'submitted' | 'revision' | 'accepted' | 'cancelled';
 export type ResolutionStatus = 'open' | 'pending_close' | 'closed' | 'acknowledged';
@@ -6,6 +7,7 @@ export type Priority = 'high' | 'normal' | 'low';
 
 export interface User {
   id: string;
+  accessRole?: AccessRole;
   roles?: Role[];
   name: string;
   initials: string;

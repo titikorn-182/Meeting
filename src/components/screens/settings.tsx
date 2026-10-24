@@ -18,7 +18,7 @@ export function SettingsScreen() {
   const [error, setError] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
   const [auditQuery, setAuditQuery] = useState('');
-  const canEdit = mode === 'supabase' ? permissions.includes('policy.manage') : state.activeRole === 'secretary';
+  const canEdit = permissions.includes('policy.manage');
   useEffect(() => {
     setReminders(state.settings.reminderDays.join(', '));
     setAcknowledgmentDays(state.settings.acknowledgmentDays);

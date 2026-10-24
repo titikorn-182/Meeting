@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext } from 'react';
+import type { AccessControl, AccessRole, PageKey } from '@/lib/access-control';
 import type { ChangeRequest, DemoSettings, DemoState, Evidence, Meeting, Resolution, Role, Task, TaskStatus, User } from '@/lib/types';
 
 export type ToastTone = 'success' | 'error' | 'info';
@@ -9,6 +10,10 @@ export interface WorkspaceContextValue {
   eligibleOwners: Array<Pick<User, 'id' | 'name' | 'unit'>>;
   ready: boolean; busy: boolean; mode: 'demo' | 'supabase';
   permissions: string[]; today: string; organization?: { id: string; name: string };
+  access: AccessControl;
+  setAccessRole: (role: AccessRole) => void;
+  setMemberRole: (profileId: string, role: AccessRole, expectedVersion: number) => Promise<boolean>;
+  setRolePages: (role: AccessRole, pages: PageKey[], expectedVersion: number) => Promise<boolean>;
   setRole: (role: Role) => void;
   notify: (message: string, type?: ToastTone) => void;
   acknowledgeTask: (id: string) => Promise<boolean>;
