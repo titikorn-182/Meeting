@@ -77,6 +77,8 @@ Migration ไม่แต่งตั้ง Admin อัตโนมัติ: �
 
 หากมี `setup-admin.local.sql` เป็นไฟล์ส่งมอบส่วนตัวที่ระบุอีเมลไว้แล้ว ไฟล์นี้ถูกกันออกจาก Git และเลือกองค์กรได้เมื่อบัญชีนั้นมี active membership เพียงองค์กรเดียว หากพบศูนย์หรือหลายองค์กรจะหยุดให้ใช้แม่แบบ `setup-admin.sql` ที่ระบุ UUID ชัดเจน ไฟล์ส่วนตัวยังเรียก private bootstrap เดิม จึงไม่เปิดคืนสมาชิก/บัญชีที่ถูกปิด และไม่ต้องใส่ API Key
 
+หาก SQL Editor แจ้ง `42P01: relation "setup_admin_local_result" does not exist` ให้เปิด query ใหม่และวางไฟล์ `setup-admin.local.sql` ฉบับล่าสุดทั้งไฟล์แล้ว Run สคริปต์ใหม่ใช้คำสั่ง `WITH ... SELECT` เดียวเพื่อแต่งตั้งและคืนผล ไม่ใช้ตารางชั่วคราวหรือผลจาก query ก่อนหน้า หากสำเร็จจะแสดง `access_role = admin` พร้อม organization/profile IDs และ allowed pages การรันซ้ำไม่เพิ่ม role version หรือ audit ซ้ำ หากแสดง `EXPLICIT_EMAIL_AND_ORGANIZATION_REQUIRED` ให้ตรวจสมาชิกที่ยังใช้งานได้และใช้แม่แบบระบุองค์กรอย่างชัดเจนเมื่อมีหลายองค์กร ไม่ต้องรัน migration 005 ซ้ำหากเคยสำเร็จแล้ว ภาพ error เพียงอย่างเดียวไม่ยืนยันว่ารันคำสั่งครบหรือมีการเปลี่ยน session; ตารางชั่วคราวมีอายุผูกกับ session/transaction ตาม [PostgreSQL CREATE TABLE](https://www.postgresql.org/docs/current/sql-createtable.html)
+
 คำสั่งจัดการสิทธิ์มี optimistic version, idempotency, organization lock และป้องกันการลดบทบาท Admin ที่ยังใช้งานได้คนสุดท้าย การเปลี่ยนบทบาทมีผลต่อการอ่าน/เขียนครั้งถัดไปในฐานข้อมูล ไม่ใช้ role หรือ actor ที่ browser ส่งมาเป็นอำนาจ
 
 เมื่อเปิดเฉพาะ Dashboard หรือ Reports จะได้ข้อมูลสรุปงาน/มติ/ประชุมที่ได้รับสิทธิ์สำหรับการนับและรายงาน ไม่มีหลักฐาน รายงานความก้าวหน้าแบบข้อความ เกณฑ์ ถ้อยคำเต็ม หรือวาระประชุม หากเปิด Changes อย่างเดียวจะได้บริบทงานขั้นต่ำพร้อม `rowVersion` เพื่อยื่นคำขอ และมติที่เชื่อมกับงานขั้นต่ำ การมีข้อมูลสรุปไม่เปิดหน้ารายละเอียดหรือคำสั่งของหน้าที่ถูกปิด Staff ยังจำกัดเฉพาะงานตนและไม่รับข้อมูลประชุม Directory นอก Team มีตนเองและบุคคลที่รายการที่เห็นอ้างถึง; ผู้มี `task.assign` ได้ชื่อ/หน่วยงานของผู้รับงานและผู้ตรวจที่มีสิทธิ์สำหรับตัวเลือกมอบหมายด้วย
@@ -153,6 +155,8 @@ Global identity guard และ organization guard จัดลำดับก�
 ชุดทดสอบรัน migrations ทุกไฟล์จริงแล้วทดสอบ actor scopes, RLS/grants, tenant FK, acknowledgment, optimistic conflicts/idempotency, progress, evidence freeze/attempts, historical self-review, closure, deadline/scope/owner changes, policy versions และ revocation ไม่มีการอ้างว่า tests นี้ทดสอบ Supabase Auth session/Storage hosted หรือ race หลาย database sessions ได้ครบ
 
 ทดสอบขั้นตอนตั้งเลขานุการแยกด้วย `node supabase/tests/setup-secretary.mjs` ครอบคลุมการเปิด workspace ผ่าน RPC ด้วยบัญชีที่ผูกแล้ว การรันซ้ำ การใช้องค์กรเดิม และการไม่เปิดสิทธิ์ที่ปิดไว้หรือขยายวันสิ้นสุดสิทธิ์โดยอัตโนมัติ
+
+ทดสอบไฟล์ตั้ง Admin ด้วย `node supabase/tests/setup-admin.mjs` โดยรัน SQL จริงผ่าน `db.query` ซึ่งรับคำสั่งเดียว ตรวจผลลัพธ์ การรันซ้ำ และการปฏิเสธสิทธิ์ หากมีไฟล์ส่วนตัว `setup-admin.local.sql` จะทดสอบด้วยหลังแทนอีเมลในหน่วยความจำด้วยบัญชีตัวอย่าง รวมกรณีองค์กรกำกวมและสมาชิกที่ถูกปิด หากไม่มีไฟล์ส่วนตัวจะระบุว่า skip เฉพาะส่วนนั้น ไม่อ้างว่าผ่านแล้ว
 
 ทดสอบบทบาทและ page policies ด้วย `node supabase/tests/role-access.mjs` ผลที่รันในเครื่องสำหรับรุ่นนี้: **16 กลุ่ม role/access, 30 workflow integration และ 25 secretary setup ผ่าน** ครอบคลุม default pages ว่าง, ขอบเขต Staff, direct-RPC denial, optimistic/idempotency conflicts, Admin คนสุดท้าย, self-review/self-approval, explicit bootstrap, dashboard/report summaries และ changes-only context ชุด workflow กำหนด page policies ของ fixtures อย่างชัดเจน ไม่ใช้สิทธิ์เหล่านั้นเป็นค่าเริ่มต้น production
 

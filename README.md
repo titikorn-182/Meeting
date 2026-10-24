@@ -101,6 +101,7 @@ npm test
 npm run test:db
 node supabase/tests/role-access.mjs
 node supabase/tests/setup-secretary.mjs
+node supabase/tests/setup-admin.mjs
 npm run build
 npm run start
 ~~~
