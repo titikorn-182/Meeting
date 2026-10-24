@@ -119,8 +119,15 @@ export function SupabaseWorkspaceProvider({ children }: { children: ReactNode })
   const value: WorkspaceContextValue = {
     ...snapshot, state: snapshot.state, user: snapshot.users.find(user => user.id === snapshot.state.currentUserId)!,
     mode: 'supabase', ready: true, busy, today: bangkokToday(), notify, refresh,
+    supportsPersonnel: snapshot.features?.personnelManagement === true,
     setRole() { notify('สิทธิ์ของบัญชีนี้กำหนดโดยผู้ดูแลพื้นที่ทำงาน', 'info'); },
     setAccessRole() { notify('สิทธิ์ของบัญชีนี้กำหนดโดย Admin ของพื้นที่ทำงาน', 'info'); },
+    async addPersonnel(input) {
+      return (await command('add_personnel', { ...input }, 'เพิ่มบุคลากรแล้ว รอเจ้าตัวสมัครและยืนยันอีเมลเพื่อเข้าใช้งาน'))?.id ?? null;
+    },
+    async setPendingPersonnelRole(invitationId, role, expectedVersion) {
+      return !!await command('set_pending_personnel_role', { invitationId, role, expectedVersion }, 'บันทึกบทบาทบุคลากรที่รอเข้าใช้งานแล้ว');
+    },
     async setMemberRole(profileId, role, expectedVersion) {
       return !!await command('set_member_role', { profileId, role, expectedVersion }, 'บันทึกบทบาทสมาชิกแล้ว');
     },

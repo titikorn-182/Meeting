@@ -1,6 +1,7 @@
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { SupabaseConfigurationError, requireSupabaseConfiguration } from '@/lib/supabase/config';
 import type { Json } from '@/lib/supabase/database.types';
+import { isPersonnelClaimUnavailable, needsVerifiedPersonnelEmail } from '@/lib/supabase/personnel';
 import { isWorkspaceSnapshot, WorkspaceError } from '@/lib/workspace';
 import { assertSameOrigin, isUuid, mapDatabaseError, parseWorkspaceCommand } from '@/lib/workspace-validation';
 
@@ -26,8 +27,16 @@ export async function GET(request: Request) {
     const requestedOrg = new URL(request.url).searchParams.get('organizationId') || configuration.organizationId;
     if (requestedOrg && !isUuid(requestedOrg)) throw new WorkspaceError('VALIDATION_FAILED', 400);
     const client = await clientForUser();
+    // Claim only prior administrator-approved invitations for this verified Auth identity.
+    // Older deployments without migration 006 retain their existing workspace behavior.
+    const claim = await client.rpc('claim_workspace_invitations', {});
+    if (claim.error && !isPersonnelClaimUnavailable(claim.error)) throw mapDatabaseError(claim.error);
     const { data, error } = await client.rpc('get_workspace_state', requestedOrg ? { p_organization_id: requestedOrg } : {});
-    if (error) throw mapDatabaseError(error);
+    if (error) {
+      const problem = mapDatabaseError(error);
+      if (problem.code === 'NO_MEMBERSHIP' && needsVerifiedPersonnelEmail(claim.data)) throw new WorkspaceError('EMAIL_VERIFICATION_REQUIRED', 403);
+      throw problem;
+    }
     if (data && typeof data === 'object' && !('access' in data)) throw new WorkspaceError('SCHEMA_NOT_READY', 503);
     if (!isWorkspaceSnapshot(data)) throw new WorkspaceError('INVALID_RESPONSE', 502);
     return Response.json(data, { headers: responseHeaders });

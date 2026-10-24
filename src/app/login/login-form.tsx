@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from 'next/link';
 import { AlertCircle, ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { signIn } from "@/app/auth/actions";
 import styles from "./login.module.css";
@@ -24,6 +25,6 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
     </div>
     {error && <div id="login-error" className={styles.error} role="alert"><AlertCircle size={18} /><p>{error}</p></div>}
     <button className={`button button-primary ${styles.submit}`} type="submit" disabled={pending}>{pending ? <><LoaderCircle size={18} className={styles.spinner} />กำลังเข้าสู่ระบบ…</> : <>เข้าสู่ระบบ<ArrowRight size={18} /></>}</button>
-    <p className={styles.help}>หากยังไม่มีบัญชีหรือลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบของหน่วยงาน</p>
+    <p className={styles.help}>ยังไม่มีบัญชี? <Link href="/signup" className="underline underline-offset-4">สมัครด้วยอีเมลที่ผู้ดูแลเพิ่มไว้</Link><br />หากลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบของหน่วยงาน</p>
   </form>;
 }

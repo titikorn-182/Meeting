@@ -17,7 +17,7 @@ npm run dev
 
 ## เชื่อม Supabase เมื่อพร้อมใส่ API Key
 
-1. สร้าง project และทำตาม [คู่มือติดตั้งฐานข้อมูล](supabase/README.md): รัน [install.sql](supabase/install.sql) ครั้งเดียวใน SQL Editor ของ project ใหม่ ไฟล์นี้รวม migrations 001–005 ทั้ง 5 ไฟล์แล้ว ไม่ต้องรันไฟล์แยกซ้ำ หากติดตั้ง 001–004 อยู่แล้ว ให้รันเฉพาะ [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ครั้งเดียวแทน
+1. สร้าง project และทำตาม [คู่มือติดตั้งฐานข้อมูล](supabase/README.md): project ใหม่ใช้ [install.sql](supabase/install.sql) ครั้งเดียว ซึ่งรวม migrations 001–006 ทั้ง 6 ไฟล์ หากมี 001–005 แล้วให้รันเฉพาะ [upgrade-personnel.sql](supabase/upgrade-personnel.sql) ไม่รัน `install.sql` หรือ migration 005 ซ้ำ; project ที่มีเพียง 001–004 ต้องเพิ่ม [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ครั้งเดียวก่อน แล้วจึงเพิ่ม personnel
 2. สร้างบัญชีใน Supabase Authentication แล้วใช้ [bootstrap.example.sql](supabase/bootstrap.example.sql) ที่แก้ UUID จริงแล้ว เพื่อสร้างองค์กรและมอบบทบาทให้แต่ละบัญชี บัญชี Auth อย่างเดียวยังไม่มีสิทธิ์อ่านงานหรืออนุมัติ
 
    เมื่อบัญชีมี identity/profile และ membership ที่ยังใช้งานได้แล้ว ให้ผู้ดูแลฐานข้อมูลแก้อีเมลและ UUID องค์กรใน [setup-admin.sql](supabase/setup-admin.sql) เพื่อแต่งตั้ง Admin ของแอปคนแรกอย่างชัดเจน จากนั้น Admin กำหนดบทบาทและหน้าใช้งานที่ `/team` สคริปต์นี้ไม่สร้าง Auth user หรือองค์กร และไม่เปิดคืน membership ที่ถูกปิด เลขานุการเดิมไม่ถูกยกระดับเป็น Admin อัตโนมัติ
@@ -34,6 +34,10 @@ NEXT_PUBLIC_SUPABASE_ORGANIZATION_ID=
 
 4. เริ่ม dev server ใหม่ แล้วเปิด [/login](http://127.0.0.1:3000/login) สำหรับ production ต้อง build ใหม่หลังเปลี่ยน NEXT_PUBLIC_* เพราะค่าเหล่านี้ถูกฝังใน browser bundle
 5. ทดลองด้วยบัญชีที่ได้รับสิทธิ์: สร้างประชุม/มติ → อนุญาตเริ่ม → มอบหมาย → รับทราบ/เริ่ม → รายงาน/เพิ่มลิงก์หลักฐาน → ส่งตรวจ/ส่งแก้/ตรวจรับ → ปิดมติ
+
+เมื่อมี Admin แล้ว ให้เพิ่มบุคลากรที่ `/team` ด้วยชื่อ นามสกุล อีเมล หน่วยงาน และบทบาท บุคลากรจะอยู่สถานะ “รอเข้าใช้งาน” จนเจ้าตัวสมัครที่ `/signup` ด้วยอีเมลเดียวกัน ตั้งรหัสผ่าน 12–128 ตัวอักษร และยืนยันอีเมล ระบบจึงผูกสมาชิกและบทบาทที่ Admin เลือกไว้ การเพิ่มบุคลากรไม่ส่งอีเมลเชิญและไม่สร้างบัญชี Auth ให้; ผู้ดูแลต้องแจ้งลิงก์สมัครแก่เจ้าตัวเอง
+
+ใน Supabase เปิด Email signup และ **Confirm email** และปิด **Anonymous Sign-ins** ตั้ง Site URL เป็น origin ของเว็บที่ deploy และเพิ่ม `https://<your-domain>/auth/callback` ใน Redirect URLs (เพิ่ม URL ของ localhost แยกเมื่อทดสอบ) การตรวจ Auth identity ต้องใช้ร่วมกับการตั้งค่าเหล่านี้ เว็บไม่มีขั้นตอนสมัครแบบ anonymous และการทดสอบ autoconfirm ของ email signup ปกติไม่ครอบคลุมทุกการตั้งค่า Auth ดูรายละเอียดใน [คู่มือบุคลากรและการสมัคร](supabase/README.md#personnel)
 
 รองรับ legacy anon key ผ่าน NEXT_PUBLIC_SUPABASE_ANON_KEY แทน publishable key ได้ เว็บนี้ **ไม่ต้องใช้ service-role key, secret key หรือ database password** ห้ามใส่คีย์เหล่านั้นใน NEXT_PUBLIC_* ไฟล์ .env.local ถูก ignore แล้ว
 
@@ -62,11 +66,11 @@ NEXT_PUBLIC_SUPABASE_ORGANIZATION_ID=
 | คำขอเปลี่ยน | ขอ/พิจารณากำหนด เจ้าของ และคำอธิบายขอบเขต คำขอค้างไม่มีผลจริง |
 | ปิดมติ | ตรวจสิทธิ์และ checklist ใน transaction; ระยะนี้ทุก linked task ต้องผ่าน |
 | รายงาน | ผลรวมปัจจุบันและ CSV จากการอ่านข้อมูลใหม่ ไม่ใช่ KPI ย้อนหลังที่รับรอง |
-| บุคลากร / แจ้งเตือน / ตั้งค่า | Admin จัดการบทบาทและสิทธิ์รายหน้า, directory ตาม scope, in-app events, mark read และ policy versions |
+| บุคลากร / แจ้งเตือน / ตั้งค่า | Admin เพิ่มบุคลากรรอสมัคร จัดการบทบาทและสิทธิ์รายหน้า ติดตามภาระงาน, directory ตาม scope, in-app events, mark read และ policy versions |
 
 หนึ่งสมาชิกมีบทบาทแอปหลักหนึ่งค่าในแต่ละองค์กร: **Admin** เข้าได้ทุกหน้าและจัดการสิทธิ์, **User** และ **Executive** เริ่มต้นโดยยังไม่มีหน้าที่เปิดจน Admin เลือก, **Staff** เริ่มที่งานของฉัน/คำขอเปลี่ยนแปลง/แจ้งเตือนและเห็นเฉพาะข้อมูลตนเอง Admin เพิ่มหน้า Staff ได้เฉพาะภาพรวม หรือปิดหน้าในกลุ่มนี้ การเปิดหน้าไม่เพิ่มความสามารถธุรกิจที่บทบาทไม่มี และทุกบทบาทยังต้องผ่านกฎห้ามตรวจผลงานตนเองหรืออนุมัติคำขอตนเอง
 
-ชื่อ workflow เดิม secretary/owner/reviewer/executive ยังอยู่ใน DTO เพื่อรองรับหน้าจอ แต่ SQL ใช้บทบาทแอปและ page policy ปัจจุบันเป็น authority หากยังไม่มี override จะตีความ secretary → User, executive → Executive, owner/reviewer → Staff โดยไม่แต่งตั้ง Admin เอง Admin ของแอปเป็นคนละแนวคิดกับผู้ดูแลฐานข้อมูลทางเทคนิค และหน้า `/team` ไม่สร้างบัญชี Auth หรือ membership ใหม่ ดูขั้นตอนตั้งเลขานุการเดิมและตั้ง Admin ใน [คู่มือ Supabase](supabase/README.md)
+ชื่อ workflow เดิม secretary/owner/reviewer/executive ยังอยู่ใน DTO เพื่อรองรับหน้าจอ แต่ SQL ใช้บทบาทแอปและ page policy ปัจจุบันเป็น authority หากยังไม่มี override จะตีความ secretary → User, executive → Executive, owner/reviewer → Staff โดยไม่แต่งตั้ง Admin เอง Admin ของแอปเป็นคนละแนวคิดกับผู้ดูแลฐานข้อมูลทางเทคนิค หน้า `/team` เพิ่มรายการบุคลากรรอสมัครได้หลัง migration 006; membership เกิดเมื่อบัญชีที่ยืนยันอีเมลตรงกันรับสิทธิ์ผ่าน RPC เท่านั้น ผู้ที่ยังรอสมัครไม่เป็นตัวเลือกมอบหมายงาน และ Admin ที่รอสมัครไม่นับเป็น Admin ที่ยังใช้งานได้ ดูขั้นตอนใน [คู่มือ Supabase](supabase/README.md)
 
 Dashboard/Reports ที่เปิดโดยไม่มีหน้ารายละเอียดจะรับข้อมูลสรุปที่ได้รับสิทธิ์; Changes อย่างเดียวรับบริบทงานขั้นต่ำพร้อม version เพื่อยื่นคำขอ ไม่มีหลักฐาน/ข้อความงาน/เกณฑ์เต็มจากหน้าที่ถูกปิด Staff ไม่ได้รับงานคนอื่น directory คนอื่น หรือ audit/settings ขององค์กร หน้าจอโหมดจริงไม่สลับบุคคล ทุกการเขียนตรวจสิทธิ์และหน้าที่เปิดในฐานข้อมูลอีกครั้ง ตาราง public เปิด RLS และปิด direct client access ใช้ read/write RPC ที่ตรวจ tenant, session และ assignment แทนการแก้ status จาก browser
 
@@ -83,13 +87,14 @@ Dashboard/Reports ที่เปิดโดยไม่มีหน้าร�
 | src/components/supabase-workspace-provider.tsx | โหลดจริง รอ mutation, retry key, reload และ errors |
 | src/components/workspace-context.tsx | Async interface ร่วมของหน้าจอ |
 | src/lib/supabase/ | Config, clients และ typed RPC contract |
-| src/proxy.ts / src/app/auth/ / src/app/login/ | Cookie refresh, login/logout และ safe callback |
+| src/proxy.ts / src/app/auth/ / src/app/login/ / src/app/signup/ | Cookie refresh, login/signup/logout และ safe callback |
 | src/app/api/workspace/route.ts | ตรวจ session, same-origin, validation, no-store |
 | src/lib/workspace-validation.ts | Allowlist คำสั่ง/fields และ safe error mapping; SQL ตรวจซ้ำ |
 | src/lib/access-control.ts | สัญญาบทบาทแอป/page keys และสิทธิ์สำหรับ UI; ฐานข้อมูลตรวจซ้ำ |
 | supabase/migrations/ | ตารางสัมพันธ์, grants/RLS, helpers และ RPC |
 | supabase/tests/integration.mjs | รัน SQL จริงด้วย PostgreSQL/PGlite โดยไม่ใช้ API Key |
 | supabase/tests/role-access.mjs | บทบาท/Page policies, Staff scope, Admin bootstrap และ negative RPC cases |
+| supabase/tests/personnel.mjs | บุคลากรรอสมัคร, หลักฐานยืนยันอีเมล, claim, scope และการไม่คืนสิทธิ์ที่ถูกปิด |
 
 database.types.ts เป็น typed RPC contract ของ migrations ที่ commit ไม่ใช่ generated table types จาก remote project เมื่อ deploy ให้เทียบ/regenerate จาก schema จริง
 
@@ -100,6 +105,7 @@ npm run typecheck
 npm test
 npm run test:db
 node supabase/tests/role-access.mjs
+node supabase/tests/personnel.mjs
 node supabase/tests/setup-secretary.mjs
 node supabase/tests/setup-admin.mjs
 npm run build
@@ -109,6 +115,7 @@ npm run start
 - Unit tests: demo workflow, config ที่ผิด/ขาด, secret-key guard, safe redirect, command validation, dates, same-origin และ safe errors
 - DB tests: migrations จริงใน PostgreSQL/WASM พร้อม Auth stubs, FK/grants, scope, idempotency, versions, frozen submissions, ผลตรวจรายเกณฑ์, closure, changes และ revocation
 - Role/access tests: 16 กลุ่มผ่าน; workflow integration 30 checks และ secretary setup 25 checks ผ่านในเครื่อง ครอบคลุมบทบาททั้ง 4, ไม่มี auto-admin, page defaults ว่าง, summary/context ของแต่ละหน้า, Staff scope, direct-RPC denial และการคง Admin คนสุดท้าย
+- Personnel tests: 22 กลุ่มผ่านใน PGlite ด้วย migrations 001–006 และ Auth stubs ครอบคลุมการเพิ่ม/เปลี่ยนบทบาท/รับสิทธิ์ การยืนยันอีเมลจริงเทียบกับ autoconfirm และ metadata ปลอม การไม่เปิดคืนบัญชีหรือสมาชิกที่ถูกปิด ขอบเขตองค์กร และการมอบหมายงานหลังรับสิทธิ์ ชุดนี้ไม่ได้ส่งอีเมลหรือทดสอบ Supabase Auth จริง
 - Login visual checks: เปิด dev server แล้วรัน npm run test:auth-ui ใช้ Chrome ที่ติดตั้งอยู่; กำหนด AUTH_VISUAL_BASE_URL และ AUTH_VISUAL_MODE=demo/configured/missing เพื่อเลือกสภาพแวดล้อม ไม่ส่งรหัสผ่านไปบริการจริง
 - Workspace smoke: npm run test:workspace-ui ทดสอบสร้างประชุมพร้อมวาระ โหลดใหม่ และตรวจรับงานใน browser context ของ demo ที่แยกจากผู้ใช้
 - NEXT_DIST_DIR=.next-ชื่อทดสอบ ใช้แยก preview build ระหว่างทดสอบ ไม่ต้องตั้งในการใช้งานปกติ

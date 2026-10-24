@@ -123,6 +123,20 @@ export function parseWorkspaceCommand(value: unknown): WorkspaceCommand {
       payload = { role, pages: p.pages, expectedVersion: version(p.expectedVersion) };
       break;
     }
+    case 'add_personnel': {
+      const firstName = text(p.firstName, 100);
+      const lastName = text(p.lastName, 100);
+      const email = text(p.email, 254).toLowerCase();
+      const unit = text(p.unit, 300);
+      if ([firstName, lastName, unit].some(value => /[\u0000-\u001f\u007f]/.test(value))
+        || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return invalid();
+      payload = { firstName, lastName, email, unit, role: choice(p.role, ACCESS_ROLES) };
+      break;
+    }
+    case 'set_pending_personnel_role': {
+      payload = { invitationId: id(p.invitationId), role: choice(p.role, ACCESS_ROLES), expectedVersion: version(p.expectedVersion) };
+      break;
+    }
   }
   return { organizationId: id(body.organizationId), operation, payload, idempotencyKey: id(body.idempotencyKey) };
 }
@@ -135,10 +149,14 @@ export function assertSameOrigin(request: Request): void {
 /** No SQL/schema/credential details returned to the browser. */
 export function mapDatabaseError(error: { code?: string; message?: string }): WorkspaceError {
   if (error.code === 'PGRST202' || error.code === '42P01' || error.code === '42883') return new WorkspaceError('SCHEMA_NOT_READY', 503);
+  if (error.code === '23505') {
+    const duplicate = error.message?.match(/\b(PERSONNEL_ALREADY_EXISTS|MEMBER_ALREADY_EXISTS)\b/)?.[1];
+    if (duplicate) return new WorkspaceError(duplicate, 409);
+  }
   if (error.code === '23505' || error.code === '40001' || error.code === '40P01') return new WorkspaceError('STALE_VERSION', 409);
   if (error.code === '0A000') return new WorkspaceError('FEATURE_NOT_AVAILABLE', 422);
-  const code = error.message?.match(/\b(UNAUTHENTICATED|FORBIDDEN|NO_MEMBERSHIP|NOT_FOUND|STALE_VERSION|INVALID_TRANSITION|VALIDATION_FAILED|MISSING_EVIDENCE|SELF_REVIEW_NOT_ALLOWED|AUTHORIZATION_REQUIRED|DEPENDENCY_NOT_READY|IDEMPOTENCY_CONFLICT|FEATURE_NOT_AVAILABLE|ACKNOWLEDGMENT_REQUIRED|MISSING_CRITERIA|PENDING_SUBMISSION|CLOSURE_NOT_READY|INVALID_ASSIGNEE|INVALID_REVIEWER|INVALID_UNIT|INVALID_DEADLINE|LAST_ADMIN_REQUIRED|PAGE_ACCESS_DENIED|INACTIVE_MEMBER)\b/)?.[1];
-  if (code) return new WorkspaceError(code, code === 'UNAUTHENTICATED' ? 401 : ['FORBIDDEN', 'NO_MEMBERSHIP', 'PAGE_ACCESS_DENIED', 'INACTIVE_MEMBER'].includes(code) ? 403 : code === 'NOT_FOUND' ? 404 : ['STALE_VERSION', 'IDEMPOTENCY_CONFLICT', 'LAST_ADMIN_REQUIRED'].includes(code) ? 409 : 422);
+  const code = error.message?.match(/\b(UNAUTHENTICATED|FORBIDDEN|NO_MEMBERSHIP|NOT_FOUND|STALE_VERSION|INVALID_TRANSITION|VALIDATION_FAILED|MISSING_EVIDENCE|SELF_REVIEW_NOT_ALLOWED|AUTHORIZATION_REQUIRED|DEPENDENCY_NOT_READY|IDEMPOTENCY_CONFLICT|FEATURE_NOT_AVAILABLE|ACKNOWLEDGMENT_REQUIRED|MISSING_CRITERIA|PENDING_SUBMISSION|CLOSURE_NOT_READY|INVALID_ASSIGNEE|INVALID_REVIEWER|INVALID_UNIT|INVALID_DEADLINE|LAST_ADMIN_REQUIRED|PAGE_ACCESS_DENIED|INACTIVE_MEMBER|PERSONNEL_ALREADY_EXISTS|MEMBER_ALREADY_EXISTS|INVITATION_CLAIMED|EMAIL_VERIFICATION_REQUIRED)\b/)?.[1];
+  if (code) return new WorkspaceError(code, code === 'UNAUTHENTICATED' ? 401 : ['FORBIDDEN', 'NO_MEMBERSHIP', 'PAGE_ACCESS_DENIED', 'INACTIVE_MEMBER', 'EMAIL_VERIFICATION_REQUIRED'].includes(code) ? 403 : code === 'NOT_FOUND' ? 404 : ['STALE_VERSION', 'IDEMPOTENCY_CONFLICT', 'LAST_ADMIN_REQUIRED', 'PERSONNEL_ALREADY_EXISTS', 'MEMBER_ALREADY_EXISTS', 'INVITATION_CLAIMED'].includes(code) ? 409 : 422);
   if (error.code === '42501') return new WorkspaceError('FORBIDDEN', 403);
   if (error.code?.startsWith('22') || error.code?.startsWith('23')) return new WorkspaceError('VALIDATION_FAILED', 422);
   return new WorkspaceError('CONNECTION_FAILED', 503);

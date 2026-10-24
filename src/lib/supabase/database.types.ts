@@ -7,6 +7,7 @@ export type Database = {
     Tables: Record<string, never>;
     Views: Record<string, never>;
     Functions: {
+      claim_workspace_invitations: { Args: Record<string, never>; Returns: Json };
       get_workspace_state: { Args: { p_organization_id?: string }; Returns: Json };
       workspace_command: {
         Args: { p_organization_id: string; p_operation: string; p_payload: Json; p_idempotency_key: string };

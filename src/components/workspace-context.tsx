@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from 'react';
 import type { AccessControl, AccessRole, PageKey } from '@/lib/access-control';
-import type { ChangeRequest, DemoSettings, DemoState, Evidence, Meeting, Resolution, Role, Task, TaskStatus, User } from '@/lib/types';
+import type { ChangeRequest, DemoSettings, DemoState, Evidence, Meeting, PersonnelInput, Resolution, Role, Task, TaskStatus, User } from '@/lib/types';
 
 export type ToastTone = 'success' | 'error' | 'info';
 export interface WorkspaceContextValue {
@@ -11,6 +11,9 @@ export interface WorkspaceContextValue {
   ready: boolean; busy: boolean; mode: 'demo' | 'supabase';
   permissions: string[]; today: string; organization?: { id: string; name: string };
   access: AccessControl;
+  supportsPersonnel: boolean;
+  addPersonnel: (input: PersonnelInput) => Promise<string | null>;
+  setPendingPersonnelRole: (invitationId: string, role: AccessRole, expectedVersion: number) => Promise<boolean>;
   setAccessRole: (role: AccessRole) => void;
   setMemberRole: (profileId: string, role: AccessRole, expectedVersion: number) => Promise<boolean>;
   setRolePages: (role: AccessRole, pages: PageKey[], expectedVersion: number) => Promise<boolean>;

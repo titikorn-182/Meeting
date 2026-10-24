@@ -11,6 +11,7 @@ export interface WorkspaceSnapshot {
   permissions: string[];
   roles: Role[];
   access: AccessControl;
+  features?: { personnelManagement: boolean };
 }
 
 export const workspaceOperations = [
@@ -19,6 +20,7 @@ export const workspaceOperations = [
   'add_task', 'close_resolution', 'add_meeting', 'update_settings',
   'mark_notification_read', 'mark_all_read',
   'set_member_role', 'set_role_pages',
+  'add_personnel', 'set_pending_personnel_role',
 ] as const;
 export type WorkspaceOperation = typeof workspaceOperations[number];
 export interface WorkspaceCommand {
@@ -52,7 +54,8 @@ export function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot 
     && typeof row.organization.name === 'string'
     && Array.isArray(row.permissions) && row.permissions.every(p => typeof p === 'string')
     && Array.isArray(row.roles) && isAccessControl(row.access)
-    && row.access.members[state.currentUserId]?.role === row.access.role;
+    && row.access.members[state.currentUserId]?.role === row.access.role
+    && (row.features === undefined || (!!row.features && typeof row.features.personnelManagement === 'boolean'));
 }
 
 export const workspaceErrors: Record<string, string> = {
@@ -84,6 +87,10 @@ export const workspaceErrors: Record<string, string> = {
   LAST_ADMIN_REQUIRED: 'ต้องมี Admin ที่ใช้งานได้อย่างน้อยหนึ่งคน กรุณามอบหมาย Admin อีกคนก่อน',
   PAGE_ACCESS_DENIED: 'บทบาทนี้ยังไม่มีสิทธิ์เข้าหน้านี้ กรุณาติดต่อ Admin',
   INACTIVE_MEMBER: 'บัญชีนี้ถูกระงับหรือพ้นสมาชิกแล้ว กรุณาให้ผู้ดูแลตรวจสอบ',
+  PERSONNEL_ALREADY_EXISTS: 'มีรายชื่ออีเมลนี้อยู่แล้ว กรุณาค้นหาและจัดการบทบาทจากรายการเดิม',
+  MEMBER_ALREADY_EXISTS: 'บัญชีนี้มีประวัติสมาชิกในพื้นที่ทำงานแล้ว กรุณาจัดการจากรายการเดิมหรือติดต่อผู้ดูแล',
+  INVITATION_CLAIMED: 'บุคลากรนี้เข้าใช้งานแล้ว กรุณาโหลดใหม่เพื่อจัดการบทบาทจากรายการสมาชิก',
+  EMAIL_VERIFICATION_REQUIRED: 'กรุณายืนยันอีเมลที่ผู้ดูแลระบุไว้ แล้วเข้าสู่ระบบอีกครั้งเพื่อรับสิทธิ์',
 };
 
 export class WorkspaceError extends Error {

@@ -5,7 +5,7 @@
 ## เตรียม Supabase project เมื่อพร้อมใส่ keys
 
 1. สร้าง Supabase project และเก็บ Project URL กับ publishable key ตาม `.env.example` ที่ root ไม่ต้องนำ secret/service-role key ไปใส่ browser
-2. ใน SQL Editor ของ project ใหม่ คัดลอกเนื้อหาทั้งหมดจาก [install.sql](install.sql) แล้วกด Run **ครั้งเดียว** ไฟล์นี้รวม migrations 001–005 ทั้ง 5 ไฟล์ตามลำดับไว้แล้ว จึงไม่ต้องรันไฟล์แยกซ้ำ หากใช้ Supabase CLI ให้เลือกใช้ `migrations/` กับ migration workflow ของ CLI แทน ไม่รันซ้ำสองวิธี
+2. ใน SQL Editor ของ project ใหม่ คัดลอกเนื้อหาทั้งหมดจาก [install.sql](install.sql) แล้วกด Run **ครั้งเดียว** ไฟล์นี้รวม migrations 001–006 ทั้ง 6 ไฟล์ตามลำดับไว้แล้ว จึงไม่ต้องรันไฟล์แยกซ้ำ หากใช้ Supabase CLI ให้เลือกใช้ `migrations/` กับ migration workflow ของ CLI แทน ไม่รันซ้ำสองวิธี
 3. สร้างผู้ใช้จริงใน Authentication → Users และตั้งวิธี login/password ตามหน้าเข้าสู่ระบบของเว็บ บัญชี Auth เพียงอย่างเดียวยังเข้า workspace ไม่ได้
 4. คัดลอก [bootstrap.example.sql](bootstrap.example.sql) ไปแก้ UUID จริง แล้วรันเฉพาะคำสั่งที่ต้องการผ่าน SQL Editor เพื่อสร้างองค์กร หน่วยงาน และให้บทบาทอย่างชัดเจน ห้ามรัน placeholders โดยไม่แก้
 5. ตั้ง Admin ของแอปคนแรกอย่างชัดเจนด้วย [setup-admin.sql](setup-admin.sql): ใส่อีเมล Auth และ UUID องค์กรที่มีอยู่แล้ว บัญชีต้องมี identity/profile และ membership ที่ยังใช้งานได้ จากนั้นให้ Admin เปิด `/team` เพื่อกำหนดบทบาทแอปและหน้าที่แต่ละบทบาทใช้ได้ User และ Executive เริ่มต้นโดยยังไม่มีหน้าที่เปิดให้ใช้ ผู้ทำกับผู้ตรวจงานเดียวกันต้องเป็นคนละคน และผู้ยื่นคำขออนุมัติคำขอตนเองไม่ได้
@@ -19,19 +19,23 @@
 | [202610250003_workspace_read.sql](migrations/202610250003_workspace_read.sql) | อ่านข้อมูลที่ผู้ใช้มีสิทธิแล้วแปลงเป็น DTO ของ UI |
 | [202610250004_commands.sql](migrations/202610250004_commands.sql) | Transactional commands, row-version conflicts, idempotency, submissions/reviews/changes/closure |
 | [202610250005_role_access.sql](migrations/202610250005_role_access.sql) | บทบาทแอป 4 แบบ, page policies, ขอบเขต Staff, คำสั่งจัดการสิทธิ์ และ explicit Admin bootstrap |
+| [202610250006_personnel.sql](migrations/202610250006_personnel.sql) | รายการบุคลากรรอสมัคร, Admin commands, claim จากอีเมลที่ยืนยันแล้ว และ directory ตามสิทธิ์ |
 
 Migrations นี้เป็นฐานเริ่มต้นสำหรับ project ใหม่ ถ้า project มีตารางชื่อเดียวกันหรือข้อมูลจริงอยู่แล้ว ต้องตรวจและเขียน migration ผสานก่อน ไม่ใช้ DROP TABLE เพื่อทำให้รันผ่าน
 
-**Project ที่ติดตั้ง 001–004 แล้ว:** รันเฉพาะ [upgrade-role-access.sql](upgrade-role-access.sql) ครั้งเดียว ไฟล์นี้ตรงกับ migration 005 ทุกไบต์และรักษาข้อมูลเดิม ไม่รัน `install.sql` หรือ 001–004 ซ้ำ หากใช้ CLI ให้ apply migration 005 ผ่าน workflow เดิมแทน อย่ารันทั้ง upgrade script และ migration เดียวกันซ้ำ
+**Project ที่ติดตั้ง 001–005 แล้ว:** รันเฉพาะ [upgrade-personnel.sql](upgrade-personnel.sql) เพื่อเพิ่มฟีเจอร์บุคลากร ไฟล์นี้ตรงกับ migration 006 ทุกไบต์และรันซ้ำได้โดยคงรายการเดิม ไม่รัน `install.sql` หรือ `upgrade-role-access.sql` ซ้ำ หากใช้ CLI ให้ apply migration 006 ผ่าน workflow เดิมแทน
+
+**Project ที่ติดตั้งเพียง 001–004:** เพิ่ม [upgrade-role-access.sql](upgrade-role-access.sql) ครั้งเดียวก่อน แล้วจึงเพิ่ม `upgrade-personnel.sql` ไฟล์ role access ตรงกับ migration 005 และไม่ใช่สคริปต์สำหรับรันซ้ำ หากเคยพบ `member_access_roles already exists` ให้ตรวจว่ามี migration 005 แล้ว ไม่ติดตั้งตารางเก่าซ้ำเพื่อเพิ่ม personnel
 
 `install.sql` เก็บ transaction ของแต่ละ migration ไว้แยกกัน หากพบข้อผิดพลาดในช่วงท้าย ส่วนก่อนหน้าอาจติดตั้งสำเร็จแล้ว ให้ตรวจผลและแก้จากจุดที่ล้มเหลว ไม่รันทั้งไฟล์ซ้ำทันที ไฟล์นี้ไม่สร้างบัญชี Auth หรือ membership ให้ ต้องทำข้อ 3–5 ต่อด้วยข้อมูลจริง
 
-หลังติดตั้ง ตรวจใน SQL Editor ว่าฟังก์ชันหลักทั้งสองมีอยู่ โดยผลทั้งสองคอลัมน์ต้องไม่เป็น `null`:
+หลังติดตั้ง ตรวจใน SQL Editor ว่าฟังก์ชันหลักทั้งสามมีอยู่ โดยผลทุกคอลัมน์ต้องไม่เป็น `null`:
 
 ```sql
 select
   to_regprocedure('public.get_workspace_state(uuid)') as read_rpc,
-  to_regprocedure('public.workspace_command(uuid,text,jsonb,uuid)') as write_rpc;
+  to_regprocedure('public.workspace_command(uuid,text,jsonb,uuid)') as write_rpc,
+  to_regprocedure('public.claim_workspace_invitations()') as personnel_claim_rpc;
 ```
 
 จากนั้นเข้าสู่เว็บด้วยบัญชีที่ตั้ง membership แล้วจึงทดสอบอ่านและบันทึกข้อมูล การตอบกลับจาก Auth health เพียงอย่างเดียวยืนยันได้เฉพาะว่า Project URL และ public key ติดต่อบริการได้ ไม่ได้ยืนยันว่าฐานข้อมูลและสิทธิ์ติดตั้งครบ
@@ -73,7 +77,7 @@ Migration ไม่แต่งตั้ง Admin อัตโนมัติ: �
 
 `roles` ใน DTO ยังใช้ชื่อ workflow เดิมเพื่อรองรับหน้าจอ: Admin → secretary/owner/reviewer/executive, User → secretary/owner, Executive → executive/reviewer, Staff → owner รายการนี้ไม่ใช่กลไกมอบสิทธิ์เพิ่มให้บัญชี; authorization ใช้บทบาทแอปและ page policy ปัจจุบัน
 
-**Admin ของแอปต่างจากผู้ดูแลฐานข้อมูลทางเทคนิค** การใช้ SQL Editor หรือถือ service-role key ไม่ได้สร้างบทบาทแอปให้บัญชีเข้าสู่เว็บ ผู้ดูแลฐานข้อมูลต้องรัน `setup-admin.sql` โดยเลือกอีเมลและองค์กรอย่างชัดเจน สคริปต์ต้องพบสมาชิกที่ยังใช้งานได้ ไม่สร้างบัญชี Auth/องค์กร/สมาชิกใหม่ ไม่เปิดคืน identity หรือ membership ที่ถูกปิด และรันซ้ำกับ Admin เดิมโดยไม่เพิ่ม version หน้า `/team` ไม่สร้างบัญชี Auth และไม่เพิ่มสมาชิกใหม่ การสร้าง/ผูกบัญชียังคงผ่านขั้นตอน provisioning ที่ผู้ดูแลรับรอง
+**Admin ของแอปต่างจากผู้ดูแลฐานข้อมูลทางเทคนิค** การใช้ SQL Editor หรือถือ service-role key ไม่ได้สร้างบทบาทแอปให้บัญชีเข้าสู่เว็บ ผู้ดูแลฐานข้อมูลต้องรัน `setup-admin.sql` โดยเลือกอีเมลและองค์กรอย่างชัดเจน สคริปต์ต้องพบสมาชิกที่ยังใช้งานได้ ไม่สร้างบัญชี Auth/องค์กร/สมาชิกใหม่ ไม่เปิดคืน identity หรือ membership ที่ถูกปิด และรันซ้ำกับ Admin เดิมโดยไม่เพิ่ม version หลัง migration 006 Admin ใช้ `/team` เตรียมบุคลากรคนถัดไปได้ โดยสมาชิกใหม่เกิดเมื่อเจ้าตัวสมัครและรับสิทธิ์ด้วยอีเมลที่ยืนยันแล้วตามขั้นตอนด้านล่าง
 
 หากมี `setup-admin.local.sql` เป็นไฟล์ส่งมอบส่วนตัวที่ระบุอีเมลไว้แล้ว ไฟล์นี้ถูกกันออกจาก Git และเลือกองค์กรได้เมื่อบัญชีนั้นมี active membership เพียงองค์กรเดียว หากพบศูนย์หรือหลายองค์กรจะหยุดให้ใช้แม่แบบ `setup-admin.sql` ที่ระบุ UUID ชัดเจน ไฟล์ส่วนตัวยังเรียก private bootstrap เดิม จึงไม่เปิดคืนสมาชิก/บัญชีที่ถูกปิด และไม่ต้องใส่ API Key
 
@@ -85,9 +89,28 @@ Migration ไม่แต่งตั้ง Admin อัตโนมัติ: �
 
 ผู้มี `resolution.draft` ที่เปิดเฉพาะหน้า Resolutions ได้ตัวเลือกประชุมต้นทางขั้นต่ำ `{id,title,number}` เพื่อบันทึกมติ แม้หน้า Meetings ปิดอยู่ ตัวเลือกนี้ไม่มี agenda หรือรายละเอียดประชุม และไม่เปิดคำสั่งแก้ประชุม
 
+<a id="personnel"></a>
+## เพิ่มบุคลากรล่วงหน้าและสมัครบัญชี
+
+1. Admin เปิด `/team` ใส่ชื่อ นามสกุล อีเมล หน่วยงานที่เปิดใช้งาน และบทบาท Admin/User/Executive/Staff ระบบแสดงบุคลากรเป็น “รอเข้าใช้งาน” พร้อมสิทธิ์รายหน้าของบทบาทที่เลือก User/Executive อาจยังไม่มีหน้าที่เปิดจน Admin กำหนด
+2. Admin แจ้งลิงก์ `/signup` แก่เจ้าตัวเอง การเพิ่มรายการนี้ไม่ส่งอีเมลเชิญ ไม่สร้าง Auth user และไม่ตั้งรหัสผ่านแทนบุคลากร
+3. เจ้าตัวสมัครด้วยอีเมลเดียวกันและรหัสผ่าน 12–128 ตัวอักษร จากนั้นยืนยันผ่านอีเมลที่ Supabase Auth ส่งเมื่อสมัคร บัญชีที่สมัครเองโดยไม่มีรายการบุคลากรหรือ membership เดิมจะไม่ได้รับสิทธิ์อัตโนมัติ
+4. เมื่อกลับเข้าเว็บ API เรียก `claim_workspace_invitations()` ก่อนอ่าน workspace หากอีเมลผ่านการยืนยันและเงื่อนไขสมาชิกครบ จะสร้าง profile/identity เท่าที่ขาด เพิ่ม membership และบทบาทในองค์กรที่ Admin ระบุไว้ แล้วแสดงเป็นสมาชิกใช้งานแล้ว
+
+ใน Supabase เปิดการสมัครผ่าน Email และ **Confirm email** และปิด **Anonymous Sign-ins**; ตั้ง **Site URL** เป็น origin ของเว็บที่ deploy และเพิ่ม `https://<your-domain>/auth/callback` ใน **Redirect URLs** ให้ตรงกับโดเมนที่ใช้จริง สำหรับเครื่องพัฒนาเพิ่ม `http://127.0.0.1:3000/auth/callback` หรือ origin/port ที่เปิดอยู่แยกต่างหาก การส่งอีเมลสมัครขึ้นอยู่กับการตั้งค่า Auth/SMTP และข้อจำกัดของ project; รอบงานนี้ไม่ได้ส่งอีเมลหรือยืนยันการตั้งค่า hosted project
+
+การรับสิทธิ์ใช้ `auth.uid()` และอีเมลปัจจุบันจาก `auth.users` โดยต้องมี `email_confirmed_at` พร้อม `auth.identities` ของ provider `email` ที่อีเมลตรงกันและ `identity_data.email_verified` เป็น JSON boolean `true` ไม่ใช้ `raw_user_meta_data`, metadata จากหน้า signup หรือบทบาทจาก browser เป็นหลักฐาน การตรวจนี้ต้องใช้ร่วมกับ **Confirm email ON / Anonymous Sign-ins OFF** ข้างต้น: autoconfirm ใน email signup ปกติถูกปฏิเสธตามชุดทดสอบ แต่ไม่ได้รับรองทุกการตั้งค่า Auth โดยเฉพาะการเปลี่ยน anonymous user เป็น email user เมื่อปิด Confirm email เว็บไม่มี anonymous signup flow ผู้ใช้ต้องผ่านการยืนยันที่ Auth รองรับ ไม่แก้ metadata เพื่อข้ามการตรวจ ดู [การตั้งค่า Auth](https://supabase.com/docs/guides/auth/general-configuration), [ขั้นตอนยืนยัน](https://github.com/supabase/auth/blob/master/internal/api/verify.go) และ [ขั้นตอนเปลี่ยนบัญชีของ Supabase Auth](https://github.com/supabase/auth/blob/master/internal/api/user.go)
+
+Admin เปลี่ยนบทบาทของผู้รอสมัครได้ด้วย version check เมื่อรับสิทธิ์แล้วต้องเปลี่ยนผ่านสมาชิกจริง ผู้รอสมัครไม่อยู่ในตัวเลือกผู้รับงาน/ผู้ตรวจ/ผู้ประสานงาน ไม่ถูกนับเป็นสมาชิกใช้งานแล้วหรือ Admin คนสุดท้าย และไม่มีภาระงานจนรับสิทธิ์สำเร็จ หน้า `/team` ติดตามจำนวนงาน สถานะ และรายการงานของบุคลากรจากข้อมูลที่ผู้ใช้มีสิทธิ์อ่าน
+
+SQL ป้องกันอีเมลซ้ำในองค์กร การเพิ่มคนที่มี membership เดิม และไม่เปิดคืนบัญชี/identity/profile ที่ถูกปิด สมาชิกที่ถูกระงับ/ถอน/หมดอายุ หรือองค์กร/หน่วยงานที่ปิดใช้งาน หากมีสมาชิกเกิดขึ้นระหว่างรอสมัคร ระบบไม่เขียนทับสิทธิ์เดิม รายการนั้นต้องให้ผู้ดูแลตรวจ ชื่อจากรายการบุคลากรแสดงเฉพาะองค์กรที่เพิ่ม ไม่เขียนทับชื่อ profile หรือบทบาทในองค์กรอื่น อีเมลใน directory แสดงให้ Admin หรือเจ้าตัวเท่านั้น; รายชื่อที่รอสมัครแสดงเฉพาะ Admin
+
+ฐานข้อมูลที่ยังมีเพียง migration 005 ยังอ่าน workspace เดิมได้ แต่ UI จะไม่เปิดการเพิ่มบุคลากรจนได้รับ `features.personnelManagement=true` หลังติดตั้ง migration 006
+
 ## ขอบเขตที่เชื่อมแล้ว
 
 - Auth identity แยกจาก profile, membership และ role grants ภายใน organization; ไม่ให้ signup คนแรกเป็น admin อัตโนมัติ
+- Admin เตรียมบุคลากรด้วยชื่อ/อีเมล/หน่วยงาน/บทบาท แก้บทบาทและ page policies และติดตามภาระงาน; ผูกสมาชิกเมื่อเจ้าตัวยืนยันอีเมลและรับสิทธิ์
 - ทะเบียนประชุม วาระ มติ เวอร์ชันเกณฑ์ และรอบมติ; อนุญาตเริ่มแยกจากการสร้างทะเบียน
 - งานถาวรแยกรอบงาน/รุ่นขอบเขต เจ้าของ/ผู้ตรวจ การรับทราบ และกำหนดเดิม/ปัจจุบัน
 - ความก้าวหน้าพร้อมรายงานที่แก้ย้อนหลังไม่ได้; 100% ไม่ใช่ accepted
@@ -100,7 +123,9 @@ Migration ไม่แต่งตั้ง Admin อัตโนมัติ: �
 
 ## สัญญา API
 
-`public.get_workspace_state(p_organization_id uuid default null)` คืน `{ organization, users, units, eligibleOwners, roles, permissions, state, access }` ให้ active member ที่มีบทบาทแอปจาก override หรือ legacy grant ที่ยังมีผล `access` มี `{role,pages,policies,policyVersion,members}` โดย `members[profileId]` เป็น `{role,version}` เฉพาะ directory ที่มองเห็น และ `users` เพิ่ม `accessRole` สมาชิกที่ยังไม่มี override มี version 0; policy เริ่ม version 1 รายการที่ไม่มีสิทธิ์เป็น array ว่าง และ settings เป็น `{}`; audit คืนเฉพาะ Admin
+`public.get_workspace_state(p_organization_id uuid default null)` คืน `{ organization, users, units, eligibleOwners, roles, permissions, state, access, features }` ให้ active member ที่มีบทบาทแอปจาก override หรือ legacy grant ที่ยังมีผล `access` มี `{role,pages,policies,policyVersion,members}` โดย `members[profileId]` เป็น `{role,version}` เฉพาะ directory ที่มองเห็น และ `users` เพิ่ม `accessRole` สมาชิกที่ยังไม่มี override มี version 0; policy เริ่ม version 1 รายการที่ไม่มีสิทธิ์เป็น array ว่าง และ settings เป็น `{}`; audit คืนเฉพาะ Admin
+
+Migration 006 เพิ่ม `features.personnelManagement=true` และ `users[].membershipStatus` (`active`/`pending`) พร้อมชื่อแยกและอีเมลตามสิทธิ์ บุคลากรที่รอสมัครใช้ invitation ID ใน `users[].id` และ `access.members[invitationId]` เริ่ม version 1 ซึ่งไม่ใช่ profile ID สำหรับมอบหมายงาน ส่วน `public.claim_workspace_invitations()` ไม่รับ target หรือองค์กรจาก client คืน `{claimed:number,emailVerified:boolean}` และเรียกได้เฉพาะ authenticated session
 
 `eligibleOwners` เป็นรายชื่อขั้นต่ำ `{id,name,unit}` สำหรับผู้มีสิทธิยื่นคำขอหรือมอบหมายที่ไม่ใช่ Staff และมีเฉพาะผู้รับงานได้จริงในองค์กรเดียวกัน Staff ได้ array ว่าง หน้าที่มีเพียง summary context อาจไม่มี fields ของ DTO รายละเอียด เช่น evidence, criteria, content, agenda จึงต้องไม่ถือว่าข้อมูลสรุปคือข้อมูลฉบับเต็ม
 
@@ -125,6 +150,8 @@ Migration ไม่แต่งตั้ง Admin อัตโนมัติ: �
 | mark_notification_read / mark_all_read | {id} / {} |
 | set_member_role | profileId, role: admin/user/executive/staff, expectedVersion ของสมาชิก |
 | set_role_pages | role: user/executive/staff, pages: PageKey[], expectedVersion ของ policy ทั้งองค์กร |
+| add_personnel | firstName, lastName, email, unit, role: admin/user/executive/staff; คืน `{id,status:'pending'}` |
+| set_pending_personnel_role | invitationId, role: admin/user/executive/staff, expectedVersion ของรายการรอสมัคร; คืน `{id,version}` |
 
 ส่ง idempotency key เดิมกับ payload เดิมเมื่อ retry คำสั่งที่ไม่ทราบผล การใช้ key เดิมกับ payload ต่างจะได้ IDEMPOTENCY_CONFLICT เมื่อ expectedVersion ไม่ตรงให้โหลดข้อมูลใหม่และให้ผู้ใช้ทบทวน ไม่ retry เขียนด้วย version ใหม่โดยเงียบ
 
@@ -152,7 +179,7 @@ Global identity guard และ organization guard จัดลำดับก�
 
 จาก root รัน `node supabase/tests/integration.mjs` หรือ `npm run test:db` หลังติดตั้ง dependencies การทดสอบใช้ PGlite ซึ่งรัน PostgreSQL จริงใน WASM และ Auth table/function stubs ภายใน test database ชั่วคราว ไม่ต้องมี API Key และไม่ติดต่อ Supabase project จริง
 
-ชุดทดสอบรัน migrations ทุกไฟล์จริงแล้วทดสอบ actor scopes, RLS/grants, tenant FK, acknowledgment, optimistic conflicts/idempotency, progress, evidence freeze/attempts, historical self-review, closure, deadline/scope/owner changes, policy versions และ revocation ไม่มีการอ้างว่า tests นี้ทดสอบ Supabase Auth session/Storage hosted หรือ race หลาย database sessions ได้ครบ
+ชุด workflow ใช้ migrations จริงตามรายการใน test แล้วทดสอบ actor scopes, RLS/grants, tenant FK, acknowledgment, optimistic conflicts/idempotency, progress, evidence freeze/attempts, historical self-review, closure, deadline/scope/owner changes, policy versions และ revocation ชุด personnel ด้านล่างเพิ่มการทดสอบ migration 006 ไม่มีการอ้างว่า tests นี้ทดสอบ Supabase Auth session/Storage hosted หรือ race หลาย database sessions ได้ครบ
 
 ทดสอบขั้นตอนตั้งเลขานุการแยกด้วย `node supabase/tests/setup-secretary.mjs` ครอบคลุมการเปิด workspace ผ่าน RPC ด้วยบัญชีที่ผูกแล้ว การรันซ้ำ การใช้องค์กรเดิม และการไม่เปิดสิทธิ์ที่ปิดไว้หรือขยายวันสิ้นสุดสิทธิ์โดยอัตโนมัติ
 
@@ -160,8 +187,10 @@ Global identity guard และ organization guard จัดลำดับก�
 
 ทดสอบบทบาทและ page policies ด้วย `node supabase/tests/role-access.mjs` ผลที่รันในเครื่องสำหรับรุ่นนี้: **16 กลุ่ม role/access, 30 workflow integration และ 25 secretary setup ผ่าน** ครอบคลุม default pages ว่าง, ขอบเขต Staff, direct-RPC denial, optimistic/idempotency conflicts, Admin คนสุดท้าย, self-review/self-approval, explicit bootstrap, dashboard/report summaries และ changes-only context ชุด workflow กำหนด page policies ของ fixtures อย่างชัดเจน ไม่ใช้สิทธิ์เหล่านั้นเป็นค่าเริ่มต้น production
 
-PGlite จัดคิว transactions จึงทดสอบผลของการลดสิทธิ์ที่เรียงลำดับได้ แต่ยังไม่ยืนยัน lock contention ระหว่าง PostgreSQL หลาย sessions จริง รอบงานนี้ไม่ได้รัน SQL หรือเปลี่ยนข้อมูลบน Supabase hosted และไม่ได้ยืนยัน hosted Auth/Storage
+ทดสอบบุคลากรด้วย `node supabase/tests/personnel.mjs`: **22 กลุ่มผ่าน** โดยรัน migrations 001–006 จริงใน PGlite ครอบคลุม Admin add/role changes, input validation, idempotency/version conflicts, ขอบเขตองค์กรและข้อมูลอีเมล, Auth identity proof เทียบกับ autoconfirm/metadata ปลอม, verified claim และการรันซ้ำ, ไม่คืนสิทธิ์บัญชี/สมาชิกที่ถูกปิด, รักษาข้อมูลองค์กรอื่น, Admin คนสุดท้าย และการมอบหมายงานจริงหลัง Staff รับสิทธิ์ พร้อมตรวจว่า pending personnel ใช้เป็นผู้ประสานงานหรือเจ้าของงานไม่ได้
 
-ตรวจ install bundle เพิ่มโดยเทียบเนื้อหาและ SHA256 ของทั้ง 5 sources กับไฟล์ migration แบบตรงทุกไบต์ แล้วรัน bundle ใน PGlite ใหม่พร้อมทดสอบ personal local handoff โดยแทนอีเมลด้วย fixtures `example.test`: 11 checks ผ่าน รวมการรันซ้ำ องค์กรที่ไม่ชัดเจน การระงับ/ถอนสมาชิก ปิด identity และ banned Auth account โดยไม่มีข้อมูลส่วนตัวใน fixtures
+PGlite จัดคิว transactions จึงทดสอบผลของการลดสิทธิ์ที่เรียงลำดับได้ แต่ยังไม่ยืนยัน lock contention ระหว่าง PostgreSQL หลาย sessions จริง รอบงานนี้ไม่ได้รัน SQL หรือเปลี่ยนข้อมูลบน Supabase hosted ไม่ได้ส่งอีเมล และไม่ได้ยืนยัน hosted Auth/Storage
+
+`install.sql` รวม sources 001–006 พร้อม SHA256 ของไฟล์ต้นฉบับแต่ละไฟล์ ตรวจแล้วว่า sources ทั้ง 6 ชุดตรงทุกไบต์และ `upgrade-personnel.sql` ตรงกับ 006 จากนั้นรัน bundle บน PGlite ใหม่สำเร็จและพบ public RPC ทั้งสามตัว การตรวจนี้ไม่ได้ทดสอบ hosted Auth หรือการตั้งค่า project ให้เทียบ source bytes/hash และทดสอบติดตั้งใหม่หลังแก้ migrations เสมอ
 
 ก่อนใช้ข้อมูลจริง ให้ทดสอบ hosted login/session และวงจรหลักด้วยบัญชีหลายบทบาท, ทดสอบ revoke/mutation ด้วย PostgreSQL สอง sessions จริง, กำหนดนโยบาย retention และทดสอบ backup/restore ฐานข้อมูลรวมไฟล์เมื่อเพิ่ม Storage แยก dev/test/prod และยืนยัน role templates กับผู้มีอำนาจของหน่วยงานก่อนนำร่อง

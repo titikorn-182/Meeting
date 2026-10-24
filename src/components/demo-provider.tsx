@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 import { initialState, users, DEMO_TODAY } from "@/lib/mock-data";
 import { approveDeadlineChange, canCloseResolution, createId, daysUntil, nextDisplayCode, reconcileResolutionStatus, validateTaskTransition } from "@/lib/workflow";
-import type { ChangeRequest, DemoState, Meeting, Resolution, Task } from "@/lib/types";
+import type { ChangeRequest, DemoState, Meeting, Resolution, Task, User } from "@/lib/types";
 import { ACCESS_ROLES, DEFAULT_ROLE_PAGES, STAFF_PAGE_KEYS, WORKSPACE_PAGES, canAccessPage, legacyRoleForAccessRole, legacyRolesForAccessRole, pageForPath, permissionsForAccessRole, type AccessControl, type AccessRole, type PageKey } from "@/lib/access-control";
 
 import { WorkspaceContext as DemoContext, useWorkspace, type WorkspaceContextValue, type ToastTone } from './workspace-context';
@@ -13,11 +13,20 @@ import { SupabaseWorkspaceProvider } from './supabase-workspace-provider';
 const STORAGE_KEY = "polubu-ui-demo-v1";
 const ACCESS_STORAGE_KEY = "polubu-ui-demo-access-v1";
 const copyInitial = () => structuredClone(initialState);
+interface PendingPersonnel {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  unit: string;
+}
 interface DemoAccessMetadata {
   currentUserId: string;
   policies: Record<AccessRole, PageKey[]>;
   policyVersion: number;
   members: Record<string, { role: AccessRole; version: number }>;
+  /** Optional so existing role policies survive upgrading a saved demo. */
+  pendingPersonnel?: Record<string, PendingPersonnel>;
 }
 const personaIds: Record<AccessRole, string> = { admin: "u-siriporn", user: "u-nattapong", executive: "u-somchai", staff: "u-thanaphorn" };
 function initialAccess(): DemoAccessMetadata {
@@ -33,7 +42,31 @@ function validAccess(value: unknown): value is DemoAccessMetadata {
   const data = value as DemoAccessMetadata;
   return users.some((user) => user.id === data.currentUserId) && Number.isInteger(data.policyVersion) && data.policyVersion > 0 &&
     users.every((user) => data.members?.[user.id] && ACCESS_ROLES.includes(data.members[user.id].role) && Number.isInteger(data.members[user.id].version) && data.members[user.id].version > 0) &&
-    Object.values(data.members).some((member) => member.role === "admin") && ACCESS_ROLES.every((role) => Array.isArray(data.policies?.[role]) && new Set(data.policies[role]).size === data.policies[role].length && data.policies[role].every((page) => WORKSPACE_PAGES.some((item) => item.key === page) && (role !== "staff" || STAFF_PAGE_KEYS.includes(page)))) && data.policies.admin.length === WORKSPACE_PAGES.length;
+    users.some((user) => data.members[user.id].role === "admin") && validPendingPersonnel(data) && ACCESS_ROLES.every((role) => Array.isArray(data.policies?.[role]) && new Set(data.policies[role]).size === data.policies[role].length && data.policies[role].every((page) => WORKSPACE_PAGES.some((item) => item.key === page) && (role !== "staff" || STAFF_PAGE_KEYS.includes(page)))) && data.policies.admin.length === WORKSPACE_PAGES.length;
+}
+function validPersonnelText(value: unknown, maximum: number): value is string {
+  return typeof value === "string" && value.trim().length > 0 && value.trim().length <= maximum && !/[\u0000-\u001f\u007f]/.test(value);
+}
+function validPersonnelEmail(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+function validPendingPersonnel(data: DemoAccessMetadata) {
+  if (data.pendingPersonnel === undefined) return true;
+  if (!data.pendingPersonnel || typeof data.pendingPersonnel !== "object" || Array.isArray(data.pendingPersonnel)) return false;
+  const entries = Object.entries(data.pendingPersonnel);
+  const emails = new Set<string>();
+  return entries.every(([id, person]) => {
+    const member = data.members[id];
+    if (!person || person.id !== id || users.some((user) => user.id === id) || !member || !ACCESS_ROLES.includes(member.role) || !Number.isInteger(member.version) || member.version < 1 ||
+      !validPersonnelText(person.firstName, 100) || !validPersonnelText(person.lastName, 100) || !validPersonnelText(person.unit, 300) || !users.some((user) => user.unit === person.unit) ||
+      !validPersonnelEmail(person.email) || person.email !== person.email.trim().toLowerCase() || emails.has(person.email)) return false;
+    emails.add(person.email);
+    return true;
+  });
+}
+// Web Locks serialize access edits across demo tabs; each edit also reads storage afresh.
+async function withAccessLock<T>(action: () => T): Promise<T> {
+  return typeof navigator !== "undefined" && navigator.locks ? navigator.locks.request(ACCESS_STORAGE_KEY, action) : action();
 }
 function scopedDemoState(raw: DemoState, access: AccessControl): DemoState {
   const staff = access.role === "staff";
@@ -137,11 +170,17 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
     }
   }, [state, ready, notify]);
 
-  function commitAccess(next: DemoAccessMetadata) {
+  function applyAccess(next: DemoAccessMetadata) {
     accessCurrent.current = next; setMetadata(next);
-    try { localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(next)); } catch { storageWarning.current = true; }
     const synchronized = { ...current.current, currentUserId: next.currentUserId, activeRole: legacyRoleForAccessRole(accessFrom(next).role) };
     current.current = synchronized; setState(synchronized);
+  }
+  function commitAccess(next: DemoAccessMetadata, requirePersistence = false) {
+    try { localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(next)); } catch {
+      storageWarning.current = true;
+      if (requirePersistence) throw new Error("ยังบันทึกบุคลากรไม่ได้ พื้นที่จัดเก็บในเบราว์เซอร์ไม่พร้อมใช้งาน");
+    }
+    applyAccess(next);
   }
   function requirePermission(permission: string) {
     const latest = accessFrom(latestAccess());
@@ -149,20 +188,23 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
   }
   function memberCan(profileId: string, permission: string) {
     const member = accessCurrent.current.members[profileId];
-    return Boolean(member && permissionsForAccessRole(member.role, accessCurrent.current.policies[member.role]).includes(permission));
+    return Boolean(users.some((user) => user.id === profileId) && member && permissionsForAccessRole(member.role, accessCurrent.current.policies[member.role]).includes(permission));
   }
   function switchPersona(role: AccessRole) {
     if (!ACCESS_ROLES.includes(role)) return;
-    const selectedId = accessCurrent.current.members[personaIds[role]]?.role === role ? personaIds[role] : users.find((user) => accessCurrent.current.members[user.id]?.role === role)?.id;
-    if (!selectedId) { notify("ยังไม่มีสมาชิกตัวอย่างในบทบาทนี้ ให้ Admin กำหนดบทบาทสมาชิกก่อน", "info"); return; }
-    commitAccess({ ...accessCurrent.current, currentUserId: selectedId });
+    void withAccessLock(() => {
+      const latest = latestAccess();
+      const selectedId = latest.members[personaIds[role]]?.role === role ? personaIds[role] : users.find((user) => latest.members[user.id]?.role === role)?.id;
+      if (!selectedId) { notify("ยังไม่มีสมาชิกตัวอย่างในบทบาทนี้ ให้ Admin กำหนดบทบาทสมาชิกก่อน", "info"); return; }
+      commitAccess({ ...latest, currentUserId: selectedId });
+    });
   }
   function latestAccess() {
     try {
       const stored = localStorage.getItem(ACCESS_STORAGE_KEY);
       const parsed: unknown = stored ? JSON.parse(stored) : accessCurrent.current;
       if (validAccess(parsed) && (parsed.policyVersion > accessCurrent.current.policyVersion || Object.entries(parsed.members).some(([id, member]) => member.version > (accessCurrent.current.members[id]?.version ?? 0)))) {
-        commitAccess({ ...parsed, currentUserId: accessCurrent.current.currentUserId });
+        applyAccess({ ...parsed, currentUserId: accessCurrent.current.currentUserId });
       }
     } catch { storageWarning.current = true; }
     return accessCurrent.current;
@@ -182,18 +224,22 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
   }
   const access = accessFrom(metadata);
   const permissions = permissionsForAccessRole(access.role, access.pages);
-  const members = users.map((user) => { const role = metadata.members[user.id].role; return { ...user, accessRole: role, role: legacyRoleForAccessRole(role), roles: legacyRolesForAccessRole(role) }; });
+  const members: User[] = users.map((user) => { const role = metadata.members[user.id].role; return { ...user, membershipStatus: "active", accessRole: role, role: legacyRoleForAccessRole(role), roles: legacyRolesForAccessRole(role) }; });
+  const pendingMembers: User[] = access.role === "admin" && canAccessPage(access, "team") ? Object.values(metadata.pendingPersonnel ?? {}).map((person) => {
+    const role = metadata.members[person.id].role;
+    return { ...person, name: `${person.firstName} ${person.lastName}`, initials: `${Array.from(person.firstName)[0] ?? ""}${Array.from(person.lastName)[0] ?? ""}`, membershipStatus: "pending", accessRole: role, role: legacyRoleForAccessRole(role), roles: legacyRolesForAccessRole(role), avatarColor: "#5f7161" };
+  }) : [];
   const visibleState = scopedDemoState(state, access);
   const referencedUsers = new Set([state.currentUserId,
     ...visibleState.tasks.flatMap((task) => [task.ownerId, task.reviewerId]),
     ...visibleState.resolutions.map((resolution) => resolution.coordinatorId),
   ]);
-  const visibleUsers = members.filter((user) => access.role === "staff" ? user.id === state.currentUserId : canAccessPage(access, "team") || referencedUsers.has(user.id) || (permissions.includes("task.assign") && (memberCan(user.id, "task.work") || memberCan(user.id, "submission.review"))));
+  const visibleUsers = [...members.filter((user) => access.role === "staff" ? user.id === state.currentUserId : canAccessPage(access, "team") || referencedUsers.has(user.id) || (permissions.includes("task.assign") && (memberCan(user.id, "task.work") || memberCan(user.id, "submission.review")))), ...pendingMembers];
   const visibleMembers = Object.fromEntries(visibleUsers.map((user) => [user.id, metadata.members[user.id]]));
   const value: WorkspaceContextValue = {
     state: visibleState, access: { ...access, members: visibleMembers }, ready,
     user: members.find((item) => item.id === state.currentUserId) ?? members[0], users: visibleUsers, units: [...new Set(visibleUsers.map((user) => user.unit))], notify,
-    mode: 'demo', busy: false, today: DEMO_TODAY, permissions,
+    mode: 'demo', busy: false, today: DEMO_TODAY, permissions, supportsPersonnel: true,
     eligibleOwners: access.role === "staff" || !(permissions.includes("task.assign") || permissions.includes("change.request")) ? [] : members.filter(user => memberCan(user.id, "task.work")).map(({ id, name, unit }) => ({ id, name, unit })),
     async refresh() { latestAccess(); return true; },
     async authorizeResolution(id) {
@@ -206,20 +252,54 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
     },
     setAccessRole: switchPersona,
     setRole(role) { switchPersona(role === "secretary" ? "admin" : role === "owner" ? "staff" : "executive"); },
+    async addPersonnel(input) {
+      return withAccessLock(() => {
+        try {
+          const currentAccess = latestAccess(); requirePermission("access.manage");
+          if (!canAccessPage(accessFrom(currentAccess), "team")) throw new Error("คุณไม่มีสิทธิจัดการบุคลากร");
+          if (!validPersonnelText(input.firstName, 100) || !validPersonnelText(input.lastName, 100) || !validPersonnelText(input.unit, 300) || typeof input.email !== "string" || !ACCESS_ROLES.includes(input.role)) throw new Error("กรอกชื่อ นามสกุล อีเมล หน่วยงาน และบทบาทให้ครบถ้วน");
+          const person = { id: crypto.randomUUID(), firstName: input.firstName.trim(), lastName: input.lastName.trim(), email: input.email.trim().toLowerCase(), unit: input.unit.trim() };
+          if (!validPersonnelEmail(person.email)) throw new Error("กรุณาระบุอีเมลให้ถูกต้องและไม่เกิน 254 ตัวอักษร");
+          if (!users.some((user) => user.unit === person.unit)) throw new Error("กรุณาเลือกหน่วยงานที่มีอยู่ในพื้นที่ทำงาน");
+          if ([...users, ...Object.values(currentAccess.pendingPersonnel ?? {})].some((user) => user.email?.trim().toLowerCase() === person.email)) throw new Error("มีบุคลากรที่ใช้อีเมลนี้ในพื้นที่ทำงานแล้ว");
+          const next = { ...currentAccess, pendingPersonnel: { ...currentAccess.pendingPersonnel, [person.id]: person }, members: { ...currentAccess.members, [person.id]: { role: input.role, version: 1 } } };
+          commitAccess(next, true);
+          commit((previous) => audit(previous, "เพิ่มบุคลากรล่วงหน้า", person.id, `${person.firstName} ${person.lastName}`, `รอเข้าใช้งาน · ${input.role}`));
+          notify("เพิ่มบุคลากรแล้ว สถานะรอเข้าใช้งาน ข้อมูลสาธิตยังไม่ผูกกับบัญชีจริง");
+          return person.id;
+        } catch (error) { notify(error instanceof Error ? error.message : "เพิ่มบุคลากรไม่ได้", "error"); return null; }
+      });
+    },
+    async setPendingPersonnelRole(invitationId, role, expectedVersion) {
+      return withAccessLock(() => {
+        try {
+          const currentAccess = latestAccess(); requirePermission("access.manage");
+          if (!canAccessPage(accessFrom(currentAccess), "team")) throw new Error("คุณไม่มีสิทธิจัดการบุคลากร");
+          const person = currentAccess.pendingPersonnel?.[invitationId];
+          const member = currentAccess.members[invitationId];
+          if (!person || !member || !ACCESS_ROLES.includes(role)) throw new Error("ไม่พบบุคลากรที่รอเข้าใช้งานหรือบทบาทที่เลือก");
+          if (member.version !== expectedVersion) throw new Error("สิทธิบุคลากรเปลี่ยนไปแล้ว กรุณาตรวจข้อมูลล่าสุดก่อนบันทึกอีกครั้ง");
+          const next = { ...currentAccess, members: { ...currentAccess.members, [invitationId]: { role, version: member.version + 1 } } };
+          commitAccess(next, true);
+          commit((previous) => audit(previous, "เปลี่ยนบทบาทบุคลากรที่รอเข้าใช้งาน", invitationId, `${person.firstName} ${person.lastName}`, `${member.role} → ${role}`));
+          notify("บันทึกบทบาทบุคลากรที่รอเข้าใช้งานแล้ว"); return true;
+        } catch (error) { notify(error instanceof Error ? error.message : "บันทึกบทบาทบุคลากรไม่ได้", "error"); return false; }
+      });
+    },
     async setMemberRole(profileId, role, expectedVersion) {
-      try {
+      return withAccessLock(() => { try {
         const currentAccess = latestAccess(); requirePermission("access.manage");
         const member = currentAccess.members[profileId];
-        if (!member || !ACCESS_ROLES.includes(role)) throw new Error("ไม่พบสมาชิกหรือบทบาทที่เลือก");
+        if (!users.some((user) => user.id === profileId) || !member || !ACCESS_ROLES.includes(role)) throw new Error("ไม่พบสมาชิกหรือบทบาทที่เลือก");
         if (member.version !== expectedVersion) throw new Error("สิทธิสมาชิกเปลี่ยนไปแล้ว กรุณาตรวจข้อมูลล่าสุดก่อนบันทึกอีกครั้ง");
-        if (member.role === "admin" && role !== "admin" && Object.values(currentAccess.members).filter((item) => item.role === "admin").length === 1) throw new Error("ต้องมี Admin อย่างน้อยหนึ่งคน กรุณากำหนด Admin คนอื่นก่อน");
+        if (member.role === "admin" && role !== "admin" && users.filter((user) => currentAccess.members[user.id]?.role === "admin").length === 1) throw new Error("ต้องมี Admin อย่างน้อยหนึ่งคน กรุณากำหนด Admin คนอื่นก่อน");
         const next = { ...currentAccess, members: { ...currentAccess.members, [profileId]: { role, version: member.version + 1 } } };
         commit((previous) => audit(previous, "เปลี่ยนบทบาทสมาชิก", profileId, users.find((user) => user.id === profileId)?.name ?? profileId, `${member.role} → ${role}`));
         commitAccess(next); notify("บันทึกบทบาทสมาชิกแล้ว"); return true;
-      } catch (error) { notify(error instanceof Error ? error.message : "บันทึกสิทธิสมาชิกไม่ได้", "error"); return false; }
+      } catch (error) { notify(error instanceof Error ? error.message : "บันทึกสิทธิสมาชิกไม่ได้", "error"); return false; } });
     },
     async setRolePages(role, pages, expectedVersion) {
-      try {
+      return withAccessLock(() => { try {
         const currentAccess = latestAccess(); requirePermission("access.manage");
         if (!ACCESS_ROLES.includes(role) || role === "admin") throw new Error("Admin ต้องเข้าถึงทุกหน้าเพื่อดูแลระบบ");
         if (currentAccess.policyVersion !== expectedVersion) throw new Error("สิทธิแต่ละหน้าเปลี่ยนไปแล้ว กรุณาตรวจข้อมูลล่าสุดก่อนบันทึกอีกครั้ง");
@@ -227,7 +307,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
         const next = { ...currentAccess, policies: { ...currentAccess.policies, [role]: [...pages] }, policyVersion: currentAccess.policyVersion + 1 };
         commit((previous) => audit(previous, "เปลี่ยนสิทธิการเข้าถึงหน้า", role, role, pages.join(", ")));
         commitAccess(next); notify("บันทึกหน้าที่บทบาทนี้เข้าถึงได้แล้ว"); return true;
-      } catch (error) { notify(error instanceof Error ? error.message : "บันทึกสิทธิการเข้าถึงไม่ได้", "error"); return false; }
+      } catch (error) { notify(error instanceof Error ? error.message : "บันทึกสิทธิการเข้าถึงไม่ได้", "error"); return false; } });
     },
     async acknowledgeTask(id) {
       const ok = commit((previous) => {
@@ -285,6 +365,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
         if (accessFrom(accessCurrent.current).role === "staff" && task.ownerId !== previous.currentUserId) throw new Error("ยื่นคำขอได้เฉพาะงานของตนเอง");
         if (["accepted", "cancelled"].includes(task.status)) throw new Error("งานสิ้นสุดแล้ว ไม่สามารถขอเปลี่ยนกำหนดรอบนี้ได้");
         if (!input.reason.trim() || !input.proposedValue.trim()) throw new Error("ระบุค่าที่เสนอและเหตุผลให้ครบ");
+        if (input.type === "owner" && !memberCan(input.proposedValue, "task.work")) throw new Error("เลือกผู้รับผิดชอบที่เข้าใช้งานแล้วและมีสิทธิดำเนินงาน");
         if (previous.changes.some((change) => change.taskId === task.id && change.type === input.type && change.status === "pending")) throw new Error("มีคำขอประเภทนี้รอพิจารณาอยู่แล้ว");
         if (input.type === "deadline" && (!/^\d{4}-\d{2}-\d{2}$/.test(input.proposedValue) || daysUntil(input.proposedValue, task.dueDate) === null || (daysUntil(input.proposedValue, task.dueDate) ?? 0) <= 0)) throw new Error("กำหนดที่ขอขยายต้องเป็นวันที่ถูกต้องและอยู่หลังวันครบกำหนดปัจจุบัน");
         const change: ChangeRequest = { ...input, id: createId("change"), code: nextDisplayCode("change", previous.changes.map((item) => item.code)), status: "pending", requestedById: previous.currentUserId, createdAt: new Date().toISOString(), originalValue: input.type === "deadline" ? task.dueDate : input.type === "owner" ? task.ownerId : task.description };
@@ -326,6 +407,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
         requirePermission("resolution.draft");
         if (!input.title.trim() || !input.content.trim() || !input.meetingId) throw new Error("กรอกหัวเรื่อง ถ้อยคำมติ และการประชุมให้ครบ");
         if (!previous.meetings.some((meeting) => meeting.id === input.meetingId)) throw new Error("ไม่พบการประชุมต้นทาง");
+        if (!users.some((user) => user.id === input.coordinatorId)) throw new Error("เลือกผู้ประสานงานที่เข้าใช้งานพื้นที่ทำงานแล้ว");
         const resolution: Resolution = { ...input, status: input.type === "acknowledgment" ? "acknowledged" : "open", id, code: nextDisplayCode("resolution", previous.resolutions.map((item) => item.code)), createdAt: new Date().toISOString() };
         const meetings = previous.meetings.map((meeting) => meeting.id !== input.meetingId ? meeting : { ...meeting, agenda: meeting.agenda.some((agenda) => agenda.number === input.agenda) ? meeting.agenda.map((agenda) => agenda.number === input.agenda ? { ...agenda, resolutionIds: [...agenda.resolutionIds, id] } : agenda) : [...meeting.agenda, { id: createId("agenda"), number: input.agenda, title: input.title, resolutionIds: [id] }] });
         return audit({ ...previous, meetings, resolutions: [resolution, ...previous.resolutions] }, "บันทึกมติใหม่", id, input.title, "สร้างทะเบียนมติและกำหนดเกณฑ์ปิด");

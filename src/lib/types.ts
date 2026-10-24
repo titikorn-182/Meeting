@@ -14,6 +14,18 @@ export interface User {
   role: Role;
   unit: string;
   avatarColor: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  membershipStatus?: 'active' | 'pending';
+}
+
+export interface PersonnelInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  unit: string;
+  role: AccessRole;
 }
 
 export interface Evidence {

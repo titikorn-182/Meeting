@@ -41,7 +41,7 @@
 
 ใช้ฐานข้อมูลเชิงสัมพันธ์เป็นหลัก แยกข้อมูลธุรกิจที่มี FK ชัดเจนออกจาก JSON สำหรับ snapshot, payload งานเบื้องหลัง และประวัติรุ่น ไม่ย้ายโครงสร้าง DemoState ทั้งก้อนไปเก็บเป็น JSON แถวเดียว
 
-**ขอบเขตเอกสารกับโค้ดที่ใช้งานแล้ว:** รายละเอียดส่วนใหญ่ในเอกสารนี้เป็นแบบเป้าหมายตาม PRD ไม่ใช่คำรับรองว่า migration ปัจจุบันทำครบแล้ว รุ่นที่เชื่อม UI ใช้ migrations 001–005 และโมเดลบทบาทแอป Admin/User/Executive/Staff ตาม §17.0 ด้านล่าง คำว่า technical admin ในแบบเป้าหมายหมายถึงผู้ดูแลโครงสร้างพื้นฐาน ไม่ใช่บทบาทแอป Admin ที่ได้รับ business capabilities อย่างชัดเจนในรุ่นปัจจุบัน
+**ขอบเขตเอกสารกับโค้ดที่ใช้งานแล้ว:** รายละเอียดส่วนใหญ่ในเอกสารนี้เป็นแบบเป้าหมายตาม PRD ไม่ใช่คำรับรองว่า migration ปัจจุบันทำครบแล้ว รุ่นที่เชื่อม UI ใช้ migrations 001–006 และโมเดลบทบาทแอป Admin/User/Executive/Staff พร้อมบุคลากรรอสมัครตาม §17.0 ด้านล่าง คำว่า technical admin ในแบบเป้าหมายหมายถึงผู้ดูแลโครงสร้างพื้นฐาน ไม่ใช่บทบาทแอป Admin ที่ได้รับ business capabilities อย่างชัดเจนในรุ่นปัจจุบัน
 
 สิ่งที่ต้องแยกตั้งแต่แรก:
 
@@ -839,9 +839,9 @@ append-only triggers/privileges ป้องกันผู้ใช้แอป
 <a id="implementation"></a>
 ## 17. การเชื่อม UI และลำดับ migrations
 
-### 17.0 Implementation ปัจจุบัน: บทบาทแอปและ page policies
+### 17.0 Implementation ปัจจุบัน: บทบาทแอป page policies และบุคลากรรอสมัคร
 
-ชุดที่รันได้จริงคือ [migrations 001–005](supabase/migrations/) ไม่ใช่ลำดับ M01–M08 ของแบบเป้าหมายใน §17.2 Project ใหม่ใช้ [install.sql](supabase/install.sql) ครั้งเดียว ซึ่งรวมแหล่ง SQL ทั้ง 5 ไฟล์พร้อม SHA256; project ที่ใช้ 001–004 แล้วใช้เฉพาะ [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ซึ่งตรงกับ migration 005 โดยไม่ติดตั้งตารางเดิมซ้ำ ไม่มีการย้าย demo/localStorage หรือแต่งตั้ง Admin จากการ signup
+ชุดที่รันได้จริงคือ [migrations 001–006](supabase/migrations/) ไม่ใช่ลำดับ M01–M08 ของแบบเป้าหมายใน §17.2 Project ใหม่ใช้ [install.sql](supabase/install.sql) ครั้งเดียว ซึ่งรวมแหล่ง SQL ทั้ง 6 ไฟล์พร้อม SHA256; project ที่มี 001–005 แล้วเพิ่มเฉพาะ [upgrade-personnel.sql](supabase/upgrade-personnel.sql) ซึ่งตรงกับ migration 006 และรันซ้ำได้ ไม่รัน install หรือ migration 005 ซ้ำ หากมีเพียง 001–004 ให้เพิ่ม [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ครั้งเดียวก่อน 006 ไม่มีการย้าย demo/localStorage หรือแต่งตั้ง Admin จากการ signup ที่ไม่มีรายการอนุมัติไว้
 
 Migration 005 เพิ่ม `private.member_access_roles` สำหรับบทบาทแอปหลักหนึ่งค่าต่อสมาชิก/องค์กรและ optimistic version, `private.role_page_policies` สำหรับหน้าที่บทบาทเปิดได้ และ `private.access_policy_versions` สำหรับ version policy ทั้งองค์กร (เริ่ม 1) ถ้ายังไม่มี role override จะ derive จาก legacy grant ที่ยังมีผล: secretary → User, executive → Executive, owner/reviewer → Staff โดย secretary มีลำดับก่อน executive เมื่อมีหลาย grants; ไม่มีเส้นทาง derive เป็น Admin สมาชิกที่ไม่มี override มี version 0 เพื่อให้คำสั่งครั้งแรกตรวจ conflict ได้
 
@@ -860,7 +860,30 @@ Directory ปกติคืน self และชื่อ/หน่วยงา
 
 `workspace_command` เพิ่ม `set_member_role {profileId,role,expectedVersion}` และ `set_role_pages {role,pages,expectedVersion}` โดย derive actor จาก session, ตรวจ active membership/องค์กร/บทบาท Admin, ตรวจ page Team และ lock organization guard แบบ exclusive ก่อนอ่านสิทธิ์ คำสั่งรองรับ idempotency และ conflict checks ปฏิเสธเป้าหมายที่ถูกปิด/ระงับ/ถอนสมาชิก และป้องกันการลดบทบาท Admin ที่ยังใช้งานได้คนสุดท้าย Workflow commands เดิมยังอยู่หลังขอบเขต private และถูกตรวจ permission/page อีกครั้ง ไม่เปิด direct table access
 
-Admin ของแอปคนแรกต้องถูกแต่งตั้งผ่าน [setup-admin.sql](supabase/setup-admin.sql) โดยผู้ดูแลฐานข้อมูลระบุอีเมล Auth และ UUID องค์กรที่มีอยู่แล้ว บัญชีต้องมี active identity/profile/membership สคริปต์เรียก private bootstrap ภายใต้ locks ไม่สร้าง Auth user/องค์กร/สมาชิกใหม่ ไม่เปิดคืนสิทธิ์ที่ถูกปิด และรันซ้ำกับ Admin เดิมได้ การเป็นเลขานุการเดิมไม่ได้เลื่อนเป็น Admin ส่วน `/team` จัดการเฉพาะบทบาทของสมาชิกที่มีอยู่ ไม่ใช่หน้าสร้าง Auth users รายละเอียด provisioning และการแก้ปัญหาเลขานุการอยู่ใน [คู่มือ Supabase](supabase/README.md)
+Admin ของแอปคนแรกต้องถูกแต่งตั้งผ่าน [setup-admin.sql](supabase/setup-admin.sql) โดยผู้ดูแลฐานข้อมูลระบุอีเมล Auth และ UUID องค์กรที่มีอยู่แล้ว บัญชีต้องมี active identity/profile/membership สคริปต์เรียก private bootstrap ภายใต้ locks ไม่สร้าง Auth user/องค์กร/สมาชิกใหม่ ไม่เปิดคืนสิทธิ์ที่ถูกปิด และรันซ้ำกับ Admin เดิมได้ การเป็นเลขานุการเดิมไม่ได้เลื่อนเป็น Admin หลัง migration 006 หน้า `/team` จัดการทั้งสมาชิกเดิมและรายการบุคลากรรอสมัคร โดยไม่สร้าง Auth user แทนเจ้าตัว รายละเอียด provisioning และการแก้ปัญหาเลขานุการอยู่ใน [คู่มือ Supabase](supabase/README.md)
+
+#### บุคลากรรอสมัครใน migration 006
+
+`private.personnel_invitations` แยกรายการที่ Admin เตรียมจาก profile และ membership จริง ไม่ใช่คำสั่งส่งอีเมลเชิญ ตารางเปิด RLS และปิด direct client access:
+
+| กลุ่มข้อมูล | ฟิลด์และ constraint ที่ implement แล้ว |
+|---|---|
+| ตัวตนของรายการ | `id uuid` PK, `organization_id` FK, `email` lowercase/trim ยาวไม่เกิน 254; UNIQUE `(organization_id,email)` รวมรายการที่รับสิทธิ์แล้ว |
+| ข้อมูลบุคลากร | `first_name`, `last_name` ไม่ว่าง ยาวไม่เกิน 100; command ปฏิเสธ control characters; `unit_id` มี composite FK `(organization_id,unit_id)` |
+| สิทธิ์ที่เตรียมไว้ | `role` = admin/user/executive/staff, `version bigint` เริ่ม 1 และต้องมากกว่า 0 |
+| ประวัติ | `created_by` FK profiles, `created_at`, `updated_at`, `claimed_at`, `claimed_by` FK profiles; claimed fields ต้องว่างหรือมีค่าพร้อมกัน |
+
+`add_personnel {firstName,lastName,email,unit,role}` รับเฉพาะ Admin ที่มี `access.manage` และหน้า Team บันทึกรายการ pending และคืน `{id,status:'pending'}` ไม่สร้างบัญชี/สมาชิกทันที `set_pending_personnel_role {invitationId,role,expectedVersion}` เปลี่ยนได้เฉพาะรายการที่ยังไม่รับสิทธิ์ คำสั่งใช้ identity/organization guards, idempotency, optimistic version และ audit ปฏิเสธอีเมลซ้ำ สมาชิกเดิมแม้ถูกระงับ/ถอน และหน่วยงานที่ไม่เปิดใช้งาน
+
+เจ้าตัวสมัคร `/signup` ด้วยอีเมลที่ Admin ระบุและรหัสผ่าน 12–128 ตัวอักษร จากนั้นยืนยันอีเมลผ่าน Supabase Auth การเพิ่มชื่อโดย Admin ไม่ส่งอีเมล; Admin ต้องแจ้งลิงก์สมัครเอง ก่อนอ่าน workspace API เรียก `public.claim_workspace_invitations()` ซึ่งไม่รับ target user หรือองค์กรจาก client และคืน `{claimed:number,emailVerified:boolean}` ฟังก์ชัน derive `auth.uid()` อ่าน canonical email จาก `auth.users`, ต้องมี confirmed timestamp และ Auth identity ของ provider `email` ที่อีเมลตรงกันพร้อม `identity_data.email_verified` เป็น boolean true โดยไม่เชื่อ user-editable metadata
+
+การใช้งานกำหนดให้ Supabase เปิด **Email signup และ Confirm email** และปิด **Anonymous Sign-ins** ตั้ง Site URL เป็น deployed origin และเพิ่ม `/auth/callback` ของ origin ที่ใช้ใน redirect allowlist การตรวจ identity flag ไม่ใช่การรับรองทุกการตั้งค่า Auth; การทดสอบปฏิเสธ autoconfirm ครอบคลุม email signup ปกติ ไม่ครอบคลุม anonymous-to-email conversion ภายใต้การตั้งค่าที่ปิด Confirm email ซึ่งแอปนี้ไม่เปิด flow ดังกล่าว
+
+Claim ตรวจ Auth/identity/profile ที่ใช้งานได้ อีเมลตรงกับ Auth user เดียว และองค์กร/หน่วยงานที่เปิดอยู่ จากนั้นสร้าง profile/identity เท่าที่ขาด เพิ่ม membership และ role override ตามรายการ Admin ภายใต้ global identity lock และ organization locks เรียงลำดับ ไม่เปิดคืนสมาชิกที่ถูกปิด/ถอน/หมดอายุและไม่เขียนทับ membership ที่เกิดขึ้นระหว่างรอ การเรียกซ้ำไม่สร้างสมาชิกหรือ audit claim ซ้ำ ชื่อที่ Admin ระบุใช้แสดงในองค์กรนั้น โดยไม่แก้ชื่อ profile หรือบทบาทในองค์กรอื่น
+
+Read RPC เพิ่ม `features.personnelManagement=true`, `users[].membershipStatus` และชื่อแยก/อีเมลตามสิทธิ์ Admin เห็นรายการ pending ใช้ invitation ID พร้อม `access.members[invitationId]={role,version}`; ID นี้ไม่ใช่ profile ID สำหรับ workflow ผู้รอสมัครไม่อยู่ใน eligible owners/reviewers/coordinators และไม่ใช่ Admin ที่ใช้งานได้สำหรับกฎคนสุดท้าย ส่วนอีเมลสมาชิกแสดงเฉพาะ Admin หรือเจ้าตัว ไม่มี pending directory สำหรับ Staff หรือบทบาทอื่น หน้า `/team` ใช้ข้อมูลรายการงานที่อ่านได้เพื่อติดตามภาระงานของสมาชิกที่ใช้งานแล้ว
+
+ฐานข้อมูลรุ่น 005 ยังอ่าน workspace เดิมได้โดย feature เพิ่มบุคลากรถูกปิดจนติดตั้ง 006 การทดสอบใหม่ `supabase/tests/personnel.mjs` ผ่าน **22 กลุ่มใน PGlite** รวม verified claim, spoofed metadata/autoconfirm, no-revival, tenant isolation, pending assignment denial และ workflow ของ Staff หลังรับสิทธิ์ ไม่ได้ส่งอีเมลหรือทดสอบ hosted Auth จริง
 
 ผลที่รันแล้วใน local PGlite: role/access 16 กลุ่ม, workflow integration 30 checks และ secretary setup 25 checks ผ่าน รวมการรักษาข้อมูลเดิมตอน upgrade, default policies ว่าง, scope/negative RPC, page summaries/context, bootstrap, last-admin และ self-review การทดสอบ competing transactions ใน PGlite ถูกจัดคิว จึงยังไม่ยืนยัน race/lock contention ของ PostgreSQL หลาย sessions จริง รอบนี้ไม่ได้รัน SQL บน hosted Supabase และไม่ได้ยืนยัน hosted Auth/Storage ผลเหล่านี้ไม่เท่ากับผ่าน acceptance plan เต็มใน §18
 

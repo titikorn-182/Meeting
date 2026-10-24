@@ -8,6 +8,26 @@
 .tabPanel { display: grid; gap: 24px; }
 .tabPanel[hidden] { display: none; }
 .memberTotal { flex: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.personnelForm { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(240px, 1fr); column-gap: 32px; row-gap: 24px; }
+.personnelFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 18px; }
+.fullField { grid-column: 1 / -1; min-width: 0; }
+.personnelAccess { padding-left: 32px; border-left: 1px solid var(--line); min-width: 0; }
+.personnelAccess h3 { color: var(--ink); font-size: 14px; font-weight: 600; }
+.personnelAccess > p:first-of-type { margin-top: 6px; color: var(--muted); font-size: 12px; }
+.personnelAccess > .scopeNote { margin-top: 16px; }
+.personnelAccess > :global(.inline-alert) { margin-top: 16px; }
+.accessPages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; padding: 0; margin: 16px 0 0; list-style: none; }
+.accessPages li { display: flex; align-items: flex-start; gap: 6px; color: var(--ink); font-size: 12px; line-height: 1.7; }
+.accessPages svg { flex: none; margin-top: 3px; color: var(--teal); }
+.personnelSubmit { display: grid; grid-column: 1 / -1; gap: 16px; padding-top: 20px; border-top: 1px solid var(--line); }
+.signupNote { max-width: 75ch; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.formActions { display: flex; justify-content: flex-end; gap: 10px; }
+.pendingBadge { display: block; margin-top: 5px; }
+.personEmail { display: block; max-width: 30ch; margin-top: 5px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; white-space: normal; }
+.pendingWork { color: var(--muted); font-size: 11px; }
+.pendingDetails { display: grid; justify-items: start; gap: 12px; }
+.pendingDetails > p { max-width: 75ch; line-height: 1.8; font-size: 12px; }
+.pendingEmail { font-weight: 500; overflow-wrap: anywhere; }
 .filters { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(170px, 230px) 160px; gap: 12px; margin-bottom: 20px; }
 .search { position: relative; }
 .search svg { position: absolute; top: 12px; left: 12px; color: var(--muted); pointer-events: none; }
@@ -18,7 +38,7 @@
 .memberTable th:nth-child(3) { width: 18%; }
 .memberTable td { padding-top: 16px; padding-bottom: 16px; }
 .person { display: flex; gap: 12px; align-items: center; text-align: left; cursor: pointer; }
-.personName { display: block; font-weight: 500; color: var(--ink); }
+.personName { display: block; max-width: 32ch; white-space: normal; overflow-wrap: anywhere; font-weight: 500; color: var(--ink); }
 .person:hover .personName { color: var(--teal); text-decoration: underline; text-underline-offset: 4px; }
 .personMeta { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.65; }
 .unitName { display: block; max-width: 26ch; white-space: normal; }
@@ -90,11 +110,16 @@ a.taskLink:hover { color: var(--teal); text-decoration: underline; text-underlin
 .impactList dd { font-size: 12px; line-height: 1.8; }
 .dialogActions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 2px; }
 @media (max-width: 1100px) {
+  .personnelForm { grid-template-columns: 1fr; }
+  .personnelAccess { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 20px; }
   .filters { grid-template-columns: minmax(200px, 1fr) 190px 145px; }
   .policyHint { width: 100%; }
   .saveContext { width: 100%; }
 }
 @media (max-width: 680px) {
+  .personnelFields { grid-template-columns: 1fr; }
+  .accessPages { grid-template-columns: 1fr; }
+  .formActions button { flex: 1; }
   .tabs { gap: 20px; }
   .tabs button { font-size: 12px; gap: 6px; }
   .tabs button > svg { display: none; }
