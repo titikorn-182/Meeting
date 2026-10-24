@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.next-*/
+out/
+coverage/
+*.tsbuildinfo
+.env*
+!.env.example
+.impeccable/review/
+.impeccable/live/
+*.log
+.npm-cache/
+.test-artifacts/
