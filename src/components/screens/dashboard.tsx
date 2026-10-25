@@ -16,7 +16,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, EmptyState, PageHeader, ProgressBar } from '@/components/ui';
 import {
   formatThaiDate,
@@ -26,7 +26,7 @@ import {
 } from '@/lib/workflow';
 
 export function Dashboard() {
-  const { state, user, permissions, users, today } = useDemo();
+  const { state, user, permissions, users, today } = useWorkspace();
   const [tab, setTab] = useState('active');
   const metrics = useMemo(() => getDashboardMetrics(state, today), [state, today]);
   const nextMeeting = state.meetings

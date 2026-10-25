@@ -1,10 +1,8 @@
-import { DEMO_TODAY, users } from './mock-data';
 import type {
   Actor,
   DashboardMetrics,
-  DemoState,
+  WorkspaceState,
   ResolutionStatus,
-  Role,
   Task,
   TaskStatus,
   TransitionResult,
@@ -33,7 +31,7 @@ function calendarDate(value: string): string | null {
 }
 
 /** Civil-day comparison avoids host timezone/DST and keeps a date-only deadline open for its whole Thai day. */
-export function daysUntil(date?: string, today = DEMO_TODAY): number | null {
+export function daysUntil(date: string | undefined, today: string): number | null {
   if (!date) return null;
   const target = calendarDate(date);
   const base = calendarDate(today);
@@ -53,7 +51,7 @@ export function formatThaiDate(date?: string, options: Intl.DateTimeFormatOption
   }).format(parsed);
 }
 
-export function isOverdue(task: Task, today = DEMO_TODAY): boolean {
+export function isOverdue(task: Task, today: string): boolean {
   if (task.status === 'accepted' || task.status === 'cancelled') return false;
   const remaining = daysUntil(task.dueDate, today);
   return remaining !== null && remaining < 0;
@@ -87,7 +85,10 @@ export function canCloseResolution(
 }
 
 /** Ready for a separate closure review; never certifies the resolution-level checklist or closes the parent. */
-export function reconcileResolutionStatus(state: DemoState, resolutionId: string): DemoState {
+export function reconcileResolutionStatus(
+  state: WorkspaceState,
+  resolutionId: string,
+): WorkspaceState {
   const resolution = state.resolutions.find((item) => item.id === resolutionId);
   if (
     !resolution ||
@@ -112,35 +113,8 @@ export function reconcileResolutionStatus(state: DemoState, resolutionId: string
   };
 }
 
-/** Local display sequence, including legacy demo formats. Real multi-user numbering belongs on the server. */
-export function nextDisplayCode(
-  kind: 'resolution' | 'task' | 'change',
-  existingCodes: string[],
-  year = '2569',
-): string {
-  const patterns =
-    kind === 'resolution'
-      ? [new RegExp(`^มติ ${year}/(\\d+)$`), new RegExp(`^มติ (\\d+)/${year}$`)]
-      : kind === 'task'
-        ? [/^งาน-(\d+)$/, /^T-(\d+)$/]
-        : [new RegExp(`^CR-${year}-(\\d+)$`), new RegExp(`^CR-(\\d+)/${year}$`)];
-  const max = existingCodes.reduce((largest, code) => {
-    for (const pattern of patterns) {
-      const match = code.match(pattern);
-      if (match) return Math.max(largest, Number(match[1]));
-    }
-    return largest;
-  }, 0);
-  const serial = String(max + 1).padStart(3, '0');
-  return kind === 'resolution'
-    ? `มติ ${year}/${serial}`
-    : kind === 'task'
-      ? `งาน-${serial}`
-      : `CR-${year}-${serial}`;
-}
-
-/** Operational demo counts, not the PRD's full historical KPI engine or business-day SLA implementation. */
-export function getDashboardMetrics(state: DemoState, today = DEMO_TODAY): DashboardMetrics {
+/** Operational workspace counts, not the PRD's full historical KPI engine or business-day SLA implementation. */
+export function getDashboardMetrics(state: WorkspaceState, today: string): DashboardMetrics {
   const completedTasks = state.tasks.filter((task) => task.status === 'accepted').length;
   return {
     totalResolutions: state.resolutions.length,
@@ -180,12 +154,6 @@ export function createId(prefix = 'item'): string {
       ? globalThis.crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   return `${prefix}-${random}`;
-}
-
-export function getRoleUserId(role: Role): string {
-  const user = users.find((item) => item.role === role);
-  if (!user) throw new Error('ไม่พบผู้ใช้ตัวอย่างสำหรับบทบาทนี้');
-  return user.id;
 }
 
 const allowedTransitions: Record<TaskStatus, TaskStatus[]> = {
@@ -236,11 +204,11 @@ export function validateTaskTransition(
 
 /** Immutable approval. It deliberately never overwrites the original due-date baseline. */
 export function approveDeadlineChange(
-  state: DemoState,
+  state: WorkspaceState,
   changeId: string,
   actor: Actor,
-  now = `${DEMO_TODAY}T10:00:00+07:00`,
-): DemoState {
+  now: string,
+): WorkspaceState {
   if (actor.role !== 'executive' && actor.role !== 'secretary')
     throw new Error('บทบาทนี้ไม่มีสิทธิอนุมัติการเปลี่ยนกำหนด');
   const change = state.changes.find((item) => item.id === changeId);

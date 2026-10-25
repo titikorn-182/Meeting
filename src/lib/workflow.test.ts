@@ -1,6 +1,7 @@
+import { nextDisplayCode } from '../demo/display-code';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, users } from './mock-data';
+import { initialState, users, DEMO_TODAY } from '../demo/fixtures/workspace';
 import type { Actor, Task } from './types';
 import {
   approveDeadlineChange,
@@ -10,12 +11,33 @@ import {
   getDashboardMetrics,
   getResolutionProgress,
   isOverdue,
-  nextDisplayCode,
   reconcileResolutionStatus,
   validateTaskTransition,
 } from './workflow';
 
 const owner: Actor = { role: 'owner', userId: 'u-thanaphorn' };
+
+test('shared date calculations use the supplied clock across year boundaries', () => {
+  assert.equal(daysUntil('2027-01-01', '2026-12-31'), 1);
+  assert.equal(daysUntil('2026-12-31', '2027-01-01'), -1);
+  const task = { ...initialState.tasks[0], status: 'in_progress' as const, dueDate: '2027-01-01' };
+  assert.equal(isOverdue(task, '2026-12-31'), false);
+  assert.equal(isOverdue(task, '2027-01-02'), true);
+  assert.equal(
+    getDashboardMetrics({ ...initialState, tasks: [task] }, '2027-01-02').overdueTasks,
+    1,
+  );
+});
+
+function explicitClockContract() {
+  // @ts-expect-error Shared date helpers require an explicit reference day.
+  daysUntil('2027-01-01');
+  // @ts-expect-error Shared metrics must never silently use a fixture clock.
+  getDashboardMetrics(initialState);
+  // @ts-expect-error Approval timestamps must come from the calling adapter.
+  approveDeadlineChange(initialState, 'c01', owner);
+}
+void explicitClockContract;
 const reviewer: Actor = { role: 'reviewer', userId: 'u-somchai' };
 const executive: Actor = { role: 'executive', userId: 'u-anan' };
 const seededTask = (id: string): Task =>
@@ -30,16 +52,16 @@ test('date-only deadlines stay open throughout their Thai calendar day', () => {
 });
 
 test('missing and impossible dates do not become overdue or valid deadlines', () => {
-  assert.equal(daysUntil(undefined), null);
-  assert.equal(daysUntil('2026-02-30'), null);
+  assert.equal(daysUntil(undefined, DEMO_TODAY), null);
+  assert.equal(daysUntil('2026-02-30', DEMO_TODAY), null);
   assert.equal(formatThaiDate('not-a-date'), '—');
   assert.match(formatThaiDate('2026-10-24'), /2569/);
 });
 
 test('submitted late work stays overdue, while accepted and cancelled work leave the current backlog', () => {
-  assert.equal(isOverdue(seededTask('t06')), true);
-  assert.equal(isOverdue(seededTask('t01')), false);
-  assert.equal(isOverdue(seededTask('t20')), false);
+  assert.equal(isOverdue(seededTask('t06'), DEMO_TODAY), true);
+  assert.equal(isOverdue(seededTask('t01'), DEMO_TODAY), false);
+  assert.equal(isOverdue(seededTask('t20'), DEMO_TODAY), false);
 });
 
 test('100 percent progress cannot bypass evidence, review or resolution closure', () => {
@@ -198,26 +220,44 @@ test('deadline approval updates only current due date and records a decision wit
   assert.equal(before.changes.find((item) => item.id === 'c01')!.status, 'pending');
   assert.equal(after.changes.find((item) => item.id === 'c01')!.status, 'approved');
   assert.equal(after.audit.length, before.audit.length + 1);
-  assert.throws(() => approveDeadlineChange(after, 'c01', executive), /รอพิจารณา/);
+  assert.throws(
+    () => approveDeadlineChange(after, 'c01', executive, `${DEMO_TODAY}T10:00:00+07:00`),
+    /รอพิจารณา/,
+  );
 });
 
 test('pending requests leave deadlines unchanged; self-approval, stale and invalid proposals are rejected', () => {
   assert.equal(initialState.tasks.find((item) => item.id === 't03')!.dueDate, '2026-10-23');
-  assert.throws(() => approveDeadlineChange(initialState, 'c01', owner), /ไม่มีสิทธิ/);
   assert.throws(
-    () => approveDeadlineChange(initialState, 'c01', { role: 'executive', userId: owner.userId }),
+    () => approveDeadlineChange(initialState, 'c01', owner, `${DEMO_TODAY}T10:00:00+07:00`),
+    /ไม่มีสิทธิ/,
+  );
+  assert.throws(
+    () =>
+      approveDeadlineChange(
+        initialState,
+        'c01',
+        { role: 'executive', userId: owner.userId },
+        `${DEMO_TODAY}T10:00:00+07:00`,
+      ),
     /ตนเอง/,
   );
   const stale = structuredClone(initialState);
   stale.tasks.find((item) => item.id === 't03')!.dueDate = '2026-10-26';
-  assert.throws(() => approveDeadlineChange(stale, 'c01', executive), /เปลี่ยนไปแล้ว/);
+  assert.throws(
+    () => approveDeadlineChange(stale, 'c01', executive, `${DEMO_TODAY}T10:00:00+07:00`),
+    /เปลี่ยนไปแล้ว/,
+  );
   const invalid = structuredClone(initialState);
   invalid.changes.find((item) => item.id === 'c01')!.proposedValue = '2026-02-30';
-  assert.throws(() => approveDeadlineChange(invalid, 'c01', executive), /วันที่ถูกต้อง/);
+  assert.throws(
+    () => approveDeadlineChange(invalid, 'c01', executive, `${DEMO_TODAY}T10:00:00+07:00`),
+    /วันที่ถูกต้อง/,
+  );
 });
 
 test('dashboard backlog separates terminal work and does not treat cancellation as completion', () => {
-  const metrics = getDashboardMetrics(initialState);
+  const metrics = getDashboardMetrics(initialState, DEMO_TODAY);
   assert.equal(metrics.totalTasks, 20);
   assert.equal(metrics.completedTasks, 5);
   assert.equal(metrics.activeTasks, 14);

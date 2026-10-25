@@ -12,7 +12,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import {
   Avatar,
   Badge,
@@ -34,10 +34,10 @@ import {
   type PageKey,
 } from '@/lib/access-control';
 import { formatThaiDate, isOverdue } from '@/lib/workflow';
-import type { Role, User } from '@/lib/types';
+import type { WorkflowRole, User } from '@/lib/types';
 import styles from './team.module.css';
 
-const workRoleLabels: Record<Role, string> = {
+const workRoleLabels: Record<WorkflowRole, string> = {
   secretary: 'เลขานุการ',
   owner: 'ผู้รับผิดชอบ',
   reviewer: 'ผู้ตรวจผล',
@@ -55,7 +55,7 @@ function AddPersonnel({
   onCancel: () => void;
   onAdded: (id: string, name: string) => void;
 }) {
-  const { access, units, users, busy, addPersonnel, supportsPersonnel } = useDemo();
+  const { access, units, users, busy, addPersonnel, supportsPersonnel } = useWorkspace();
   const [draft, setDraft] = useState({
     firstName: '',
     lastName: '',
@@ -277,7 +277,7 @@ function AddPersonnel({
 }
 
 function RolePermissions() {
-  const { access, busy, setRolePages, users } = useDemo();
+  const { access, busy, setRolePages, users } = useWorkspace();
   const isAdmin = access.role === 'admin';
   const [draft, setDraft] = useState<{
     role: AccessRole;
@@ -561,7 +561,7 @@ export function TeamScreen() {
     setMemberRole,
     setPendingPersonnelRole,
     supportsPersonnel,
-  } = useDemo();
+  } = useWorkspace();
   const [tab, setTab] = useState<'members' | 'permissions'>('members');
   const [query, setQuery] = useState('');
   const [unit, setUnit] = useState('all');

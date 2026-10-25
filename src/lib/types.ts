@@ -1,6 +1,6 @@
 /** Screen DTOs shared by the demo and Supabase adapters. Database authorization is authoritative. */
 import type { AccessRole } from './access-control';
-export type Role = 'secretary' | 'owner' | 'reviewer' | 'executive';
+export type WorkflowRole = 'secretary' | 'owner' | 'reviewer' | 'executive';
 export type TaskStatus =
   'assigned' | 'in_progress' | 'submitted' | 'revision' | 'accepted' | 'cancelled';
 export type ResolutionStatus = 'open' | 'pending_close' | 'closed' | 'acknowledged';
@@ -9,10 +9,10 @@ export type Priority = 'high' | 'normal' | 'low';
 export interface User {
   id: string;
   accessRole?: AccessRole;
-  roles?: Role[];
+  roles?: WorkflowRole[];
   name: string;
   initials: string;
-  role: Role;
+  role: WorkflowRole;
   unit: string;
   avatarColor: string;
   firstName?: string;
@@ -144,27 +144,27 @@ export interface AuditEvent {
   detail: string;
 }
 
-export interface DemoSettings {
+export interface WorkspaceSettings {
   reminderDays: number[];
   acknowledgmentDays: number;
   reviewDays: number;
   emailNotifications: boolean;
 }
 
-export interface DemoState {
+export interface WorkspaceState {
   resolutions: Resolution[];
   tasks: Task[];
   meetings: Meeting[];
   changes: ChangeRequest[];
   notifications: Notification[];
   audit: AuditEvent[];
-  settings: DemoSettings;
-  activeRole: Role;
+  settings: WorkspaceSettings;
+  activeRole: WorkflowRole;
   currentUserId: string;
 }
 
 export interface Actor {
-  role: Role;
+  role: WorkflowRole;
   userId: string;
 }
 export interface TransitionResult {

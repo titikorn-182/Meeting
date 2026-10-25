@@ -20,7 +20,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import {
   Avatar,
   Badge,
@@ -55,7 +55,7 @@ export function TaskDetailScreen({ id }: { id: string }) {
     users,
     today,
     busy,
-  } = useDemo();
+  } = useWorkspace();
   const task = state.tasks.find((item) => item.id === id);
   const [progressValue, setProgressValue] = useState<number | null>(null);
   const [progressNote, setProgressNote] = useState('');

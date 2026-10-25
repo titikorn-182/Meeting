@@ -11,7 +11,6 @@ export default defineConfig([
   // Keep diagnostics visible without refactoring UI behavior in this contract change.
   {
     files: [
-      'src/components/demo-provider.tsx',
       'src/components/screens/resolutions.tsx',
       'src/components/screens/resolution-detail.tsx',
       'src/components/screens/settings.tsx',
@@ -19,7 +18,6 @@ export default defineConfig([
     ],
     rules: { 'react-hooks/set-state-in-effect': 'warn' },
   },
-  { files: ['src/components/demo-provider.tsx'], rules: { 'react-hooks/refs': 'warn' } },
   globalIgnores([
     '.next*/**',
     'out/**',

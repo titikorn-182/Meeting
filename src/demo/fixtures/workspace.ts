@@ -1,4 +1,4 @@
-import type { DemoState, Meeting, Resolution, Task, User } from './types';
+import type { WorkspaceState, Meeting, Resolution, Task, User } from '@/lib/types';
 
 /** All names, records and attachment metadata below are synthetic. No real institutional data is included. */
 export const DEMO_TODAY = '2026-10-24';
@@ -554,7 +554,7 @@ export const tasks: Task[] = [
   }),
 ];
 
-export const initialState: DemoState = {
+export const initialState: WorkspaceState = {
   resolutions,
   tasks,
   meetings,

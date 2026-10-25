@@ -1,4 +1,4 @@
-import type { Role } from './types';
+import type { WorkflowRole } from './types';
 
 export const ACCESS_ROLES = ['admin', 'user', 'executive', 'staff'] as const;
 export type AccessRole = (typeof ACCESS_ROLES)[number];
@@ -105,10 +105,10 @@ export function pageForPath(path: string): PageKey | null {
 export function landingPath(access: Pick<AccessControl, 'role' | 'pages'>): string {
   return WORKSPACE_PAGES.find((page) => canAccessPage(access, page.key))?.href ?? '/';
 }
-export function legacyRoleForAccessRole(role: AccessRole): Role {
+export function workflowRoleForAccessRole(role: AccessRole): WorkflowRole {
   return role === 'staff' ? 'owner' : role === 'executive' ? 'executive' : 'secretary';
 }
-export function legacyRolesForAccessRole(role: AccessRole): Role[] {
+export function workflowRolesForAccessRole(role: AccessRole): WorkflowRole[] {
   return role === 'admin'
     ? ['secretary', 'owner', 'reviewer', 'executive']
     : role === 'user'

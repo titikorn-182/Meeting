@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Inbox, X, type LucideIcon } from 'lucide-react';
 import clsx from 'clsx';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 
 export function PageHeader({
   title,
@@ -88,7 +88,7 @@ export function Badge({
   );
 }
 export function Avatar({ userId, size = 'md' }: { userId?: string; size?: 'sm' | 'md' }) {
-  const { users } = useDemo();
+  const { users } = useWorkspace();
   const user = users.find((item) => item.id === userId);
   return (
     <span

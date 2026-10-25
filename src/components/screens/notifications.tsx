@@ -13,7 +13,7 @@ import {
   Inbox,
   UserRoundCheck,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Badge, Button, EmptyState, PageHeader, Panel } from '@/components/ui';
 import { formatThaiDate } from '@/lib/workflow';
 import type { Notification } from '@/lib/types';
@@ -34,7 +34,7 @@ const typeIcons = {
 };
 
 export function NotificationsScreen() {
-  const { state, markNotificationRead, markAllRead, busy } = useDemo();
+  const { state, markNotificationRead, markAllRead, busy } = useWorkspace();
   const [view, setView] = useState<'all' | 'unread'>('all');
   const [type, setType] = useState('all');
   const unread = state.notifications.filter((notification) => !notification.read).length;

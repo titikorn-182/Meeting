@@ -24,7 +24,7 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Dialog, EmptyState } from '@/components/ui';
 import { signOut } from '@/app/auth/actions';
 import { formatThaiDate } from '@/lib/workflow';
@@ -49,7 +49,7 @@ const links = [
 
 /** Keep contextual labels readable without linking to a page the account cannot open. */
 export function AccessLink({ children, ...props }: ComponentProps<typeof Link>) {
-  const { access, ready } = useDemo();
+  const { access, ready } = useWorkspace();
   const pathname = typeof props.href === 'string' ? props.href : (props.href.pathname ?? '');
   const page = pageForPath(pathname);
   if (!ready || !page || !canAccessPage(access, page)) {
@@ -67,7 +67,8 @@ export function AccessLink({ children, ...props }: ComponentProps<typeof Link>) 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { state, user, setAccessRole, access, ready, mode, busy, today, organization } = useDemo();
+  const { state, user, setAccessRole, access, ready, mode, busy, today, organization } =
+    useWorkspace();
   const home = landingPath(access);
   const page = pageForPath(pathname);
   const hasPages = access.pages.some((key) => canAccessPage(access, key));

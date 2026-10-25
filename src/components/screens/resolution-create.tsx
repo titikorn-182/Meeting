@@ -4,12 +4,12 @@ import { AccessLink as Link } from '@/components/app-shell';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { ArrowLeft, Check, Info, Save } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Button, Field, PageHeader, Panel } from '@/components/ui';
 import type { Resolution } from '@/lib/types';
 
 export function ResolutionCreate() {
-  const { state, addResolution, permissions, users, busy, units } = useDemo();
+  const { state, addResolution, permissions, users, busy, units } = useWorkspace();
   const activeUsers = users.filter((user) => user.membershipStatus !== 'pending');
   const router = useRouter();
   const [type, setType] = useState<Resolution['type']>('action');

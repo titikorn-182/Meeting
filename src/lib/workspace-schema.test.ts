@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULT_ROLE_PAGES } from './access-control';
-import { initialState, users } from './mock-data';
+import { initialState, users } from '../demo/fixtures/workspace';
 import { decodeWorkspaceSnapshot, isNormalizedWorkspaceSnapshot } from './workspace-schema';
 import {
   decodeCommandResult,

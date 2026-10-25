@@ -15,13 +15,13 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Badge, Button, EmptyState, Field, PageHeader, Panel, ProgressBar } from '@/components/ui';
 import { createId, formatThaiDate, getResolutionProgress } from '@/lib/workflow';
 import type { Meeting } from '@/lib/types';
 
 export function MeetingsScreen() {
-  const { state, addMeeting, notify, permissions, today, busy } = useDemo();
+  const { state, addMeeting, notify, permissions, today, busy } = useWorkspace();
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
@@ -372,7 +372,7 @@ export function MeetingsScreen() {
 }
 
 export function MeetingDetailScreen({ id }: { id: string }) {
-  const { state, busy } = useDemo();
+  const { state, busy } = useWorkspace();
   const meeting = state.meetings.find((item) => item.id === id);
   if (!meeting)
     return (

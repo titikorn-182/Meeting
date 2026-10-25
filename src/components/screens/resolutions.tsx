@@ -11,12 +11,12 @@ import {
   Search,
   SlidersHorizontal,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, EmptyState, PageHeader, ProgressBar } from '@/components/ui';
 import { formatThaiDate, getResolutionProgress, isOverdue } from '@/lib/workflow';
 
 export function ResolutionsScreen() {
-  const { state, permissions, users, today } = useDemo();
+  const { state, permissions, users, today } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [type, setType] = useState('all');

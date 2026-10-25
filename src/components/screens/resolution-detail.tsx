@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import {
   Avatar,
   Badge,
@@ -46,7 +46,7 @@ export function ResolutionDetail({ id }: { id: string }) {
     users,
     busy,
     units,
-  } = useDemo();
+  } = useWorkspace();
   const [tab, setTab] = useState('overview');
   const [addingTask, setAddingTask] = useState(false);
   const [closing, setClosing] = useState(false);

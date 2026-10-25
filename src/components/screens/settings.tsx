@@ -2,14 +2,23 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { BellRing, CircleHelp, History, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Badge, Button, Dialog, EmptyState, Field, PageHeader, Panel } from '@/components/ui';
-import { initialState } from '@/lib/mock-data';
 import { formatThaiDate } from '@/lib/workflow';
-import type { DemoSettings } from '@/lib/types';
+import type { WorkspaceSettings } from '@/lib/types';
 
 export function SettingsScreen() {
-  const { state, notify, updateSettings, resetDemo, mode, permissions, users, busy } = useDemo();
+  const {
+    state,
+    defaultSettings,
+    notify,
+    updateSettings,
+    resetDemo,
+    mode,
+    permissions,
+    users,
+    busy,
+  } = useWorkspace();
   const [tab, setTab] = useState<'preferences' | 'audit'>('preferences');
   const [reminders, setReminders] = useState(state.settings.reminderDays.join(', '));
   const [acknowledgmentDays, setAcknowledgmentDays] = useState(state.settings.acknowledgmentDays);
@@ -55,7 +64,7 @@ export function SettingsScreen() {
       setError('ระยะเวลารับทราบและตรวจผลต้องเป็นจำนวนเต็ม 1–30 วันทำการ');
       return;
     }
-    const settings: DemoSettings = {
+    const settings: WorkspaceSettings = {
       reminderDays: [...new Set(values.map(Number))].sort((a, b) => b - a),
       acknowledgmentDays,
       reviewDays,
@@ -67,10 +76,10 @@ export function SettingsScreen() {
   }
 
   function restoreSettings() {
-    setReminders(initialState.settings.reminderDays.join(', '));
-    setAcknowledgmentDays(initialState.settings.acknowledgmentDays);
-    setReviewDays(initialState.settings.reviewDays);
-    setEmailNotifications(initialState.settings.emailNotifications);
+    setReminders(defaultSettings.reminderDays.join(', '));
+    setAcknowledgmentDays(defaultSettings.acknowledgmentDays);
+    setReviewDays(defaultSettings.reviewDays);
+    setEmailNotifications(defaultSettings.emailNotifications);
     setError('');
     notify('คืนค่าตั้งต้นในแบบฟอร์มแล้ว กดบันทึกเพื่อใช้ค่าเหล่านี้', 'info');
   }

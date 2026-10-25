@@ -10,14 +10,15 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "tsx --test src/lib/*.test.ts src/lib/supabase/*.test.ts",
+    "test": "tsx --test src/lib/*.test.ts src/lib/supabase/*.test.ts src/demo/*.test.ts",
     "test:db": "node --import tsx supabase/tests/integration.mjs && node --import tsx supabase/tests/role-access.mjs && node --import tsx supabase/tests/personnel.mjs && node supabase/tests/setup-secretary.mjs && node supabase/tests/setup-admin.mjs",
     "test:auth-ui": "node tests/auth-visual.mjs",
     "test:workspace-ui": "node tests/workspace-smoke.mjs",
-    "lint": "eslint . --max-warnings 8",
+    "lint": "eslint . --max-warnings 5",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:db"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:db",
+    "test:connected-ui": "node --import tsx tests/connected-workspace-smoke.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-thai": "^5.2.0",

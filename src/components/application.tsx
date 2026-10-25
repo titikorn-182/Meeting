@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { DemoProvider } from './demo-provider';
+import { WorkspaceProvider } from '@/providers/workspace-provider';
 import { AppShell } from './app-shell';
 
 export function Application({ children }: { children: React.ReactNode }) {
@@ -9,8 +9,8 @@ export function Application({ children }: { children: React.ReactNode }) {
   if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/'))
     return children;
   return (
-    <DemoProvider>
+    <WorkspaceProvider>
       <AppShell>{children}</AppShell>
-    </DemoProvider>
+    </WorkspaceProvider>
   );
 }

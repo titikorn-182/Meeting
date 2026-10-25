@@ -9,7 +9,7 @@ import {
   FileSpreadsheet,
   Printer,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Badge, Button, EmptyState, PageHeader, Panel } from '@/components/ui';
 import { daysUntil, formatThaiDate, isOverdue } from '@/lib/workflow';
 import { isWorkspaceSnapshot } from '@/lib/workspace';
@@ -31,7 +31,7 @@ function csvCell(value: string | number) {
 }
 
 export function ReportsScreen() {
-  const { state, notify, mode, permissions, users, today, units, refresh, busy } = useDemo();
+  const { state, notify, mode, permissions, users, today, units, refresh, busy } = useWorkspace();
   const [exporting, setExporting] = useState(false);
   const [unit, setUnit] = useState('all');
   const [meetingId, setMeetingId] = useState('all');

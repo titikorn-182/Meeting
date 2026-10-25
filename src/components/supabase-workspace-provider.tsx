@@ -7,6 +7,7 @@ import {
   type CommandPayloads,
   type CommandResults,
 } from '@/lib/workspace-commands';
+import { DEFAULT_TRACKING_SETTINGS } from '@/lib/settings';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -248,8 +249,9 @@ export function SupabaseWorkspaceProvider({ children }: { children: ReactNode })
     today: bangkokToday(),
     notify,
     refresh,
+    defaultSettings: DEFAULT_TRACKING_SETTINGS,
     supportsPersonnel: snapshot.features?.personnelManagement === true,
-    setRole() {
+    setWorkflowRole() {
       notify('สิทธิ์ของบัญชีนี้กำหนดโดยผู้ดูแลพื้นที่ทำงาน', 'info');
     },
     setAccessRole() {

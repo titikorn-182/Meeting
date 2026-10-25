@@ -4,13 +4,13 @@ import { createContext, useContext } from 'react';
 import type { AccessControl, AccessRole, PageKey } from '@/lib/access-control';
 import type {
   ChangeRequest,
-  DemoSettings,
-  DemoState,
+  WorkspaceSettings,
+  WorkspaceState,
   Evidence,
   Meeting,
   PersonnelInput,
   Resolution,
-  Role,
+  WorkflowRole,
   Task,
   TaskStatus,
   User,
@@ -18,7 +18,7 @@ import type {
 
 export type ToastTone = 'success' | 'error' | 'info';
 export interface WorkspaceContextValue {
-  state: DemoState;
+  state: WorkspaceState;
   user: User;
   users: User[];
   units: string[];
@@ -31,6 +31,7 @@ export interface WorkspaceContextValue {
   organization?: { id: string; name: string };
   access: AccessControl;
   supportsPersonnel: boolean;
+  defaultSettings: WorkspaceSettings;
   addPersonnel: (input: PersonnelInput) => Promise<string | null>;
   setPendingPersonnelRole: (
     invitationId: string,
@@ -40,7 +41,7 @@ export interface WorkspaceContextValue {
   setAccessRole: (role: AccessRole) => void;
   setMemberRole: (profileId: string, role: AccessRole, expectedVersion: number) => Promise<boolean>;
   setRolePages: (role: AccessRole, pages: PageKey[], expectedVersion: number) => Promise<boolean>;
-  setRole: (role: Role) => void;
+  setWorkflowRole: (role: WorkflowRole) => void;
   notify: (message: string, type?: ToastTone) => void;
   acknowledgeTask: (id: string) => Promise<boolean>;
   transitionTask: (
@@ -62,7 +63,7 @@ export interface WorkspaceContextValue {
   ) => Promise<string | null>;
   closeResolution: (id: string, criteriaConfirmed: boolean) => Promise<boolean>;
   addMeeting: (input: Omit<Meeting, 'id'>) => Promise<string | null>;
-  updateSettings: (patch: Partial<DemoSettings>) => Promise<boolean>;
+  updateSettings: (patch: Partial<WorkspaceSettings>) => Promise<boolean>;
   resetDemo: () => void;
   refresh: () => Promise<boolean>;
   markNotificationRead: (id: string) => Promise<void>;

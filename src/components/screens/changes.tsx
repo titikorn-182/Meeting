@@ -13,7 +13,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, Button, EmptyState, Field, PageHeader, Panel } from '@/components/ui';
 import { formatThaiDate } from '@/lib/workflow';
 import type { ChangeRequest, User } from '@/lib/types';
@@ -51,7 +51,7 @@ export function ChangesScreen({
     users,
     eligibleOwners,
     busy,
-  } = useDemo();
+  } = useWorkspace();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | ChangeRequest['status']>(
     initialStatus === 'pending' || initialStatus === 'approved' || initialStatus === 'rejected'

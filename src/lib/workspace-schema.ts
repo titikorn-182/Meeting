@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isAccessControl } from './access-control';
 import type { AccessControl } from './access-control';
-import type { DemoState, User } from './types';
+import type { WorkspaceState, User } from './types';
 
 const text = z.string();
 const identifier = text.min(1);
@@ -159,12 +159,12 @@ const sharedState = z.object({
     }),
   ),
 });
-const stateSchema = sharedState.extend({
+export const workspaceStateSchema = sharedState.extend({
   tasks: z.array(taskSchema),
   resolutions: z.array(resolutionSchema),
   meetings: z.array(meetingSchema),
   settings: settingsSchema,
-}) satisfies z.ZodType<DemoState>;
+}) satisfies z.ZodType<WorkspaceState>;
 const headerSchema = z.object({
   users: z.array(userSchema),
   eligibleOwners: z.array(z.object({ id: identifier, name: text, unit: text })),
@@ -176,7 +176,7 @@ const headerSchema = z.object({
   features: z.object({ personnelManagement: z.boolean() }).optional(),
 });
 export const workspaceSnapshotSchema = headerSchema
-  .extend({ state: stateSchema })
+  .extend({ state: workspaceStateSchema })
   .refine(
     (row) =>
       row.users.some((user) => user.id === row.state.currentUserId) &&

@@ -3,7 +3,7 @@
 import { AccessLink as Link } from '@/components/app-shell';
 import { useMemo, useState } from 'react';
 import { ArrowRight, CheckCheck, ClipboardList, FileDown, Search } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, EmptyState, PageHeader, Panel, ProgressBar } from '@/components/ui';
 import { daysUntil, formatThaiDate, isOverdue } from '@/lib/workflow';
 import type { TaskStatus } from '@/lib/types';
@@ -24,7 +24,7 @@ export function TasksScreen({
   initialStatus?: string;
   initialScope?: string;
 }) {
-  const { state, access, mode, users, today, units } = useDemo();
+  const { state, access, mode, users, today, units } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState(initialStatus ?? 'all');
   const [scope, setScope] = useState(initialScope ?? (initialStatus ? 'all' : 'mine'));

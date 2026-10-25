@@ -2,333 +2,54 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react';
-import { initialState, users, DEMO_TODAY } from '@/lib/mock-data';
+import {
+  ACCESS_STORAGE_KEY,
+  personaIds,
+  initialAccess,
+  accessFrom,
+  validAccess,
+  validPersonnelText,
+  validPersonnelEmail,
+  withAccessLock,
+  demoMemberCan,
+  type DemoAccessMetadata,
+} from './access';
+import { STORAGE_KEY, copyInitial, readDemoSession } from './storage';
+import { scopedDemoState } from './scope';
+import { nextDisplayCode } from './display-code';
+import { initialState, users, DEMO_TODAY } from './fixtures/workspace';
 import {
   approveDeadlineChange,
   canCloseResolution,
   createId,
   daysUntil,
-  nextDisplayCode,
   reconcileResolutionStatus,
   validateTaskTransition,
 } from '@/lib/workflow';
-import type { ChangeRequest, DemoState, Meeting, Resolution, Task, User } from '@/lib/types';
+import type { ChangeRequest, WorkspaceState, Resolution, Task, User } from '@/lib/types';
 import {
   ACCESS_ROLES,
-  DEFAULT_ROLE_PAGES,
-  STAFF_PAGE_KEYS,
   WORKSPACE_PAGES,
+  STAFF_PAGE_KEYS,
   canAccessPage,
-  legacyRoleForAccessRole,
-  legacyRolesForAccessRole,
-  pageForPath,
+  workflowRoleForAccessRole,
+  workflowRolesForAccessRole,
   permissionsForAccessRole,
-  type AccessControl,
   type AccessRole,
-  type PageKey,
 } from '@/lib/access-control';
 
 import {
-  WorkspaceContext as DemoContext,
-  useWorkspace,
+  WorkspaceContext,
   type WorkspaceContextValue,
   type ToastTone,
-} from './workspace-context';
-import { getDataConfiguration } from '@/lib/supabase/config';
-import { SupabaseWorkspaceProvider } from './supabase-workspace-provider';
-const STORAGE_KEY = 'polubu-ui-demo-v1';
-const ACCESS_STORAGE_KEY = 'polubu-ui-demo-access-v1';
-const copyInitial = () => structuredClone(initialState);
-interface PendingPersonnel {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  unit: string;
-}
-interface DemoAccessMetadata {
-  currentUserId: string;
-  policies: Record<AccessRole, PageKey[]>;
-  policyVersion: number;
-  members: Record<string, { role: AccessRole; version: number }>;
-  /** Optional so existing role policies survive upgrading a saved demo. */
-  pendingPersonnel?: Record<string, PendingPersonnel>;
-}
-const personaIds: Record<AccessRole, string> = {
-  admin: 'u-siriporn',
-  user: 'u-nattapong',
-  executive: 'u-somchai',
-  staff: 'u-thanaphorn',
-};
-function initialAccess(): DemoAccessMetadata {
-  return {
-    currentUserId: personaIds.admin,
-    policies: structuredClone(DEFAULT_ROLE_PAGES),
-    policyVersion: 1,
-    members: Object.fromEntries(
-      users.map((user) => [
-        user.id,
-        {
-          role:
-            user.id === personaIds.admin
-              ? 'admin'
-              : user.id === personaIds.user
-                ? 'user'
-                : ['executive', 'reviewer'].includes(user.role)
-                  ? 'executive'
-                  : 'staff',
-          version: 1,
-        },
-      ]),
-    ),
-  };
-}
-function accessFrom(metadata: DemoAccessMetadata): AccessControl {
-  const role = metadata.members[metadata.currentUserId]?.role ?? 'staff';
-  return {
-    role,
-    pages: role === 'admin' ? WORKSPACE_PAGES.map((page) => page.key) : metadata.policies[role],
-    policies: metadata.policies,
-    policyVersion: metadata.policyVersion,
-    members: metadata.members,
-  };
-}
-function validAccess(value: unknown): value is DemoAccessMetadata {
-  if (!value || typeof value !== 'object') return false;
-  const data = value as DemoAccessMetadata;
-  return (
-    users.some((user) => user.id === data.currentUserId) &&
-    Number.isInteger(data.policyVersion) &&
-    data.policyVersion > 0 &&
-    users.every(
-      (user) =>
-        data.members?.[user.id] &&
-        ACCESS_ROLES.includes(data.members[user.id].role) &&
-        Number.isInteger(data.members[user.id].version) &&
-        data.members[user.id].version > 0,
-    ) &&
-    users.some((user) => data.members[user.id].role === 'admin') &&
-    validPendingPersonnel(data) &&
-    ACCESS_ROLES.every(
-      (role) =>
-        Array.isArray(data.policies?.[role]) &&
-        new Set(data.policies[role]).size === data.policies[role].length &&
-        data.policies[role].every(
-          (page) =>
-            WORKSPACE_PAGES.some((item) => item.key === page) &&
-            (role !== 'staff' || STAFF_PAGE_KEYS.includes(page)),
-        ),
-    ) &&
-    data.policies.admin.length === WORKSPACE_PAGES.length
-  );
-}
-function validPersonnelText(value: unknown, maximum: number): value is string {
-  return (
-    typeof value === 'string' &&
-    value.trim().length > 0 &&
-    value.trim().length <= maximum &&
-    !/[\u0000-\u001f\u007f]/.test(value)
-  );
-}
-function validPersonnelEmail(value: unknown): value is string {
-  return (
-    typeof value === 'string' && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-  );
-}
-function validPendingPersonnel(data: DemoAccessMetadata) {
-  if (data.pendingPersonnel === undefined) return true;
-  if (
-    !data.pendingPersonnel ||
-    typeof data.pendingPersonnel !== 'object' ||
-    Array.isArray(data.pendingPersonnel)
-  )
-    return false;
-  const entries = Object.entries(data.pendingPersonnel);
-  const emails = new Set<string>();
-  return entries.every(([id, person]) => {
-    const member = data.members[id];
-    if (
-      !person ||
-      person.id !== id ||
-      users.some((user) => user.id === id) ||
-      !member ||
-      !ACCESS_ROLES.includes(member.role) ||
-      !Number.isInteger(member.version) ||
-      member.version < 1 ||
-      !validPersonnelText(person.firstName, 100) ||
-      !validPersonnelText(person.lastName, 100) ||
-      !validPersonnelText(person.unit, 300) ||
-      !users.some((user) => user.unit === person.unit) ||
-      !validPersonnelEmail(person.email) ||
-      person.email !== person.email.trim().toLowerCase() ||
-      emails.has(person.email)
-    )
-      return false;
-    emails.add(person.email);
-    return true;
-  });
-}
-// Web Locks serialize access edits across demo tabs; each edit also reads storage afresh.
-async function withAccessLock<T>(action: () => T): Promise<T> {
-  return typeof navigator !== 'undefined' && navigator.locks
-    ? navigator.locks.request(ACCESS_STORAGE_KEY, action)
-    : action();
-}
-function scopedDemoState(raw: DemoState, access: AccessControl): DemoState {
-  const staff = access.role === 'staff';
-  const allowed = (page: PageKey) => canAccessPage(access, page);
-  const summary = allowed('dashboard') || allowed('reports');
-  const scopedTasks = staff
-    ? raw.tasks.filter((task) => task.ownerId === raw.currentUserId)
-    : raw.tasks;
-  // Summary-only DTOs match the connected adapter; route gates keep detail screens off these projections.
-  const tasks =
-    allowed('tasks') || allowed('reviews')
-      ? scopedTasks
-      : summary || allowed('changes')
-        ? scopedTasks.map(
-            ({
-              id,
-              code,
-              title,
-              resolutionId,
-              ownerId,
-              unit,
-              status,
-              progress,
-              dueDate,
-              originalDueDate,
-              acceptedAt,
-              submittedAt,
-              rowVersion,
-            }) =>
-              ({
-                id,
-                code,
-                title,
-                resolutionId,
-                ownerId,
-                unit,
-                status,
-                progress,
-                dueDate,
-                originalDueDate,
-                acceptedAt,
-                submittedAt,
-                ...(allowed('changes') ? { rowVersion } : {}),
-              }) as Task,
-          )
-        : [];
-  const ownedTaskIds = new Set(scopedTasks.map((task) => task.id));
-  const taskIds = new Set(tasks.map((task) => task.id));
-  const changes = !allowed('changes')
-    ? []
-    : staff
-      ? raw.changes.filter(
-          (change) => change.requestedById === raw.currentUserId && ownedTaskIds.has(change.taskId),
-        )
-      : raw.changes;
-  const changeIds = new Set(changes.map((change) => change.id));
-  const notifications = !allowed('notifications')
-    ? []
-    : raw.notifications.filter((item) => {
-        const page = pageForPath(item.href);
-        if (!page || !allowed(page)) return false;
-        return (
-          !staff ||
-          Boolean(item.targetId && (taskIds.has(item.targetId) || changeIds.has(item.targetId))) ||
-          tasks.some((task) => item.href === `/tasks/${task.id}`)
-        );
-      });
-  const related = new Set(tasks.map((task) => task.resolutionId));
-  const resolutions = staff
-    ? raw.resolutions
-        .filter((resolution) => related.has(resolution.id))
-        .map(
-          ({ id, code, title, status, executionAuthorized }) =>
-            ({
-              id,
-              code,
-              title,
-              status,
-              executionAuthorized: executionAuthorized ?? true,
-              partialContext: true,
-            }) as Resolution,
-        )
-    : allowed('resolutions')
-      ? raw.resolutions
-      : summary
-        ? raw.resolutions.map(
-            ({
-              id,
-              code,
-              title,
-              status,
-              type,
-              coordinatorId,
-              dueDate,
-              createdAt,
-              meetingId,
-              executionAuthorized,
-            }) =>
-              ({
-                id,
-                code,
-                title,
-                status,
-                type,
-                coordinatorId,
-                dueDate,
-                createdAt,
-                meetingId,
-                executionAuthorized: executionAuthorized ?? true,
-                partialContext: true,
-              }) as Resolution,
-          )
-        : raw.resolutions
-            .filter((resolution) => related.has(resolution.id))
-            .map(
-              ({ id, code, title, status, executionAuthorized }) =>
-                ({
-                  id,
-                  code,
-                  title,
-                  status,
-                  executionAuthorized: executionAuthorized ?? true,
-                  partialContext: true,
-                }) as Resolution,
-            );
-  const meetings = staff
-    ? []
-    : allowed('meetings')
-      ? raw.meetings
-      : summary
-        ? raw.meetings.map(
-            ({ id, title, number, date, time, location, committee, status }) =>
-              ({ id, title, number, date, time, location, committee, status }) as Meeting,
-          )
-        : permissionsForAccessRole(access.role, access.pages).includes('resolution.draft')
-          ? raw.meetings.map(({ id, title, number }) => ({ id, title, number }) as Meeting)
-          : [];
-  return {
-    ...raw,
-    tasks,
-    resolutions,
-    meetings,
-    changes,
-    notifications,
-    audit: access.role === 'admin' ? raw.audit : [],
-    settings: allowed('settings') ? raw.settings : ({} as DemoState['settings']),
-  };
-}
-
+} from '@/components/workspace-context';
 function audit(
-  state: DemoState,
+  state: WorkspaceState,
   action: string,
   targetId: string,
   targetLabel: string,
   detail: string,
-): DemoState {
+): WorkspaceState {
   return {
     ...state,
     audit: [
@@ -346,24 +67,15 @@ function audit(
   };
 }
 
-/** Select the adapter explicitly. A connected failure never mounts the demo adapter. */
-export function DemoProvider({ children }: { children: ReactNode }) {
-  const configuration = getDataConfiguration();
-  return configuration.mode === 'supabase' ? (
-    <SupabaseWorkspaceProvider>{children}</SupabaseWorkspaceProvider>
-  ) : (
-    <LocalDemoProvider>{children}</LocalDemoProvider>
-  );
-}
-
-function LocalDemoProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<DemoState>(copyInitial);
+export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
+  const [initial] = useState(readDemoSession);
+  const [state, setState] = useState<WorkspaceState>(initial.state);
   const current = useRef(state);
-  const [metadata, setMetadata] = useState<DemoAccessMetadata>(initialAccess);
+  const [metadata, setMetadata] = useState<DemoAccessMetadata>(initial.metadata);
   const accessCurrent = useRef(metadata);
-  const [ready, setReady] = useState(false);
+
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastTone }[]>([]);
-  const storageWarning = useRef(false);
+  const storageWarning = useRef(initial.storageUnavailable);
   const notify = useCallback((message: string, type: ToastTone = 'success') => {
     const id = createId('toast');
     setToasts((items) => [...items.slice(-2), { id, message, type }]);
@@ -372,42 +84,11 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as { version?: number; state?: DemoState };
-        if (
-          parsed.version === 1 &&
-          parsed.state &&
-          ['resolutions', 'tasks', 'meetings', 'changes', 'notifications', 'audit'].every((key) =>
-            Array.isArray(parsed.state?.[key as keyof DemoState]),
-          ) &&
-          users.some((user) => user.id === parsed.state?.currentUserId) &&
-          parsed.state.settings
-        ) {
-          current.current = parsed.state;
-          setState(parsed.state);
-        }
-      }
-      const storedAccess = localStorage.getItem(ACCESS_STORAGE_KEY);
-      const parsedAccess: unknown = storedAccess ? JSON.parse(storedAccess) : initialAccess();
-      if (validAccess(parsedAccess)) {
-        accessCurrent.current = parsedAccess;
-        setMetadata(parsedAccess);
-      }
-      const restoredAccess = accessFrom(accessCurrent.current);
-      const restored = {
-        ...current.current,
-        currentUserId: accessCurrent.current.currentUserId,
-        activeRole: legacyRoleForAccessRole(restoredAccess.role),
-      };
-      current.current = restored;
-      setState(restored);
-      localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(accessCurrent.current));
+      localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(initial.metadata));
     } catch {
       storageWarning.current = true;
     }
-    setReady(true);
-  }, []);
+  }, [initial]);
 
   useEffect(() => {
     const synchronize = (event: StorageEvent) => {
@@ -420,7 +101,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
         setMetadata(next);
         const synchronized = {
           ...current.current,
-          activeRole: legacyRoleForAccessRole(accessFrom(next).role),
+          activeRole: workflowRoleForAccessRole(accessFrom(next).role),
         };
         current.current = synchronized;
         setState(synchronized);
@@ -433,7 +114,6 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
     try {
       // Object URLs belong to this tab only. Keep their metadata, not an unusable URL, across reloads.
       const persisted = {
@@ -455,7 +135,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
         );
       storageWarning.current = true;
     }
-  }, [state, ready, notify]);
+  }, [state, notify]);
 
   function applyAccess(next: DemoAccessMetadata) {
     accessCurrent.current = next;
@@ -463,7 +143,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
     const synchronized = {
       ...current.current,
       currentUserId: next.currentUserId,
-      activeRole: legacyRoleForAccessRole(accessFrom(next).role),
+      activeRole: workflowRoleForAccessRole(accessFrom(next).role),
     };
     current.current = synchronized;
     setState(synchronized);
@@ -484,14 +164,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
       throw new Error('บทบาทของคุณไม่มีสิทธิดำเนินการนี้ หรือผู้ดูแลปิดการเข้าถึงหน้านี้แล้ว');
   }
   function memberCan(profileId: string, permission: string) {
-    const member = accessCurrent.current.members[profileId];
-    return Boolean(
-      users.some((user) => user.id === profileId) &&
-      member &&
-      permissionsForAccessRole(member.role, accessCurrent.current.policies[member.role]).includes(
-        permission,
-      ),
-    );
+    return demoMemberCan(accessCurrent.current, profileId, permission);
   }
   function switchPersona(role: AccessRole) {
     if (!ACCESS_ROLES.includes(role)) return;
@@ -527,7 +200,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
     return accessCurrent.current;
   }
 
-  function commit(update: (previous: DemoState) => DemoState): boolean {
+  function commit(update: (previous: WorkspaceState) => WorkspaceState): boolean {
     try {
       const next = update(current.current);
       current.current = next;
@@ -538,7 +211,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
       return false;
     }
   }
-  function taskOwned(previous: DemoState, id: string): Task {
+  function taskOwned(previous: WorkspaceState, id: string): Task {
     const task = previous.tasks.find((item) => item.id === id);
     if (!task) throw new Error('ไม่พบงานที่ต้องการ');
     requirePermission('task.work');
@@ -556,8 +229,8 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
       ...user,
       membershipStatus: 'active',
       accessRole: role,
-      role: legacyRoleForAccessRole(role),
-      roles: legacyRolesForAccessRole(role),
+      role: workflowRoleForAccessRole(role),
+      roles: workflowRolesForAccessRole(role),
     };
   });
   const pendingMembers: User[] =
@@ -570,8 +243,8 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
             initials: `${Array.from(person.firstName)[0] ?? ''}${Array.from(person.lastName)[0] ?? ''}`,
             membershipStatus: 'pending',
             accessRole: role,
-            role: legacyRoleForAccessRole(role),
-            roles: legacyRolesForAccessRole(role),
+            role: workflowRoleForAccessRole(role),
+            roles: workflowRolesForAccessRole(role),
             avatarColor: '#5f7161',
           };
         })
@@ -589,7 +262,8 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
         : canAccessPage(access, 'team') ||
           referencedUsers.has(user.id) ||
           (permissions.includes('task.assign') &&
-            (memberCan(user.id, 'task.work') || memberCan(user.id, 'submission.review'))),
+            (demoMemberCan(metadata, user.id, 'task.work') ||
+              demoMemberCan(metadata, user.id, 'submission.review'))),
     ),
     ...pendingMembers,
   ];
@@ -599,7 +273,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
   const value: WorkspaceContextValue = {
     state: visibleState,
     access: { ...access, members: visibleMembers },
-    ready,
+    ready: true,
     user: members.find((item) => item.id === state.currentUserId) ?? members[0],
     users: visibleUsers,
     units: [...new Set(visibleUsers.map((user) => user.unit))],
@@ -609,12 +283,13 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
     today: DEMO_TODAY,
     permissions,
     supportsPersonnel: true,
+    defaultSettings: initialState.settings,
     eligibleOwners:
       access.role === 'staff' ||
       !(permissions.includes('task.assign') || permissions.includes('change.request'))
         ? []
         : members
-            .filter((user) => memberCan(user.id, 'task.work'))
+            .filter((user) => demoMemberCan(metadata, user.id, 'task.work'))
             .map(({ id, name, unit }) => ({ id, name, unit })),
     async refresh() {
       latestAccess();
@@ -641,7 +316,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
       });
     },
     setAccessRole: switchPersona,
-    setRole(role) {
+    setWorkflowRole(role) {
       switchPersona(role === 'secretary' ? 'admin' : role === 'owner' ? 'staff' : 'executive');
     },
     async addPersonnel(input) {
@@ -1241,7 +916,8 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
           !input.criteria.length
         )
           throw new Error('ระบุเจ้าของ ผลส่งมอบ เกณฑ์ ผู้ตรวจ และกำหนดให้ครบ');
-        if (daysUntil(input.dueDate) === null) throw new Error('ระบุวันครบกำหนดที่ถูกต้อง');
+        if (daysUntil(input.dueDate, DEMO_TODAY) === null)
+          throw new Error('ระบุวันครบกำหนดที่ถูกต้อง');
         if (
           !memberCan(input.ownerId, 'task.work') ||
           !memberCan(input.reviewerId, 'submission.review')
@@ -1395,7 +1071,7 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DemoContext.Provider value={value}>
+    <WorkspaceContext.Provider value={value}>
       {children}
       <div className="toast-region" aria-live="polite" aria-atomic="false">
         {toasts.map((toast) => (
@@ -1421,8 +1097,6 @@ function LocalDemoProvider({ children }: { children: ReactNode }) {
           </div>
         ))}
       </div>
-    </DemoContext.Provider>
+    </WorkspaceContext.Provider>
   );
 }
-
-export const useDemo = useWorkspace;

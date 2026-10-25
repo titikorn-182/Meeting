@@ -15,12 +15,12 @@ import {
   ShieldCheck,
   Undo2,
 } from 'lucide-react';
-import { useDemo } from '@/components/demo-provider';
+import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, Button, EmptyState, Field, PageHeader, Panel } from '@/components/ui';
 import { daysUntil, formatThaiDate } from '@/lib/workflow';
 
 export function ReviewsScreen({ initialTaskId }: { initialTaskId?: string }) {
-  const { state, transitionTask, notify, mode, permissions, users, today, busy } = useDemo();
+  const { state, transitionTask, notify, mode, permissions, users, today, busy } = useWorkspace();
   const [selectedId, setSelectedId] = useState(initialTaskId ?? '');
   const [query, setQuery] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
