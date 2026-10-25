@@ -1,0 +1,22 @@
+@theme inline {
+  --font-sans: 'IBM Plex Sans Thai', sans-serif;
+  --color-background: #f5f7f7;
+  --color-foreground: #253b40;
+  --color-primary: #173b42;
+  --color-accent: #b87120;
+}
+
+:root {
+  --ink: #253b40;
+  --muted: #5c7068;
+  --teal: #173b42;
+  --teal-light: #e9f1ef;
+  --accent: #b87120;
+  --accent-soft: #fff1dc;
+  --line: #e0e7e5;
+  --surface: #fff;
+  --background: #f5f7f7;
+  --danger: #b84436;
+  --success: #247457;
+  --radius: 12px;
+}

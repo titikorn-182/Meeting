@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '@/components/workspace-context';
 import { Badge, Button, EmptyState, PageHeader, Panel } from '@/components/ui';
-import { daysUntil, formatThaiDate, isOverdue } from '@/lib/workflow';
+import { formatThaiDate, isOverdue } from '@/lib/workflow';
+import { selectReportModel } from '@/lib/workspace-selectors';
 import { isWorkspaceSnapshot } from '@/lib/workspace';
 import type { TaskStatus } from '@/lib/types';
 
@@ -36,39 +37,25 @@ export function ReportsScreen() {
   const [unit, setUnit] = useState('all');
   const [meetingId, setMeetingId] = useState('all');
   const [view, setView] = useState<'units' | 'tasks' | 'overdue'>('units');
-  const filtered = useMemo(
+  const {
+    tasks: filtered,
+    accepted,
+    overdue,
+    waiting,
+    dueCohort,
+    onTime,
+    unitRows,
+    resolutionsById,
+  } = useMemo(
     () =>
-      state.tasks.filter((task) => {
-        const resolution = state.resolutions.find((item) => item.id === task.resolutionId);
-        return (
-          (unit === 'all' || task.unit === unit) &&
-          (meetingId === 'all' || resolution?.meetingId === meetingId)
-        );
-      }),
-    [state.tasks, state.resolutions, unit, meetingId],
+      selectReportModel(
+        { tasks: state.tasks, resolutions: state.resolutions },
+        { unit, meetingId, today },
+      ),
+    [state.tasks, state.resolutions, unit, meetingId, today],
   );
-  const shown = view === 'overdue' ? filtered.filter((task) => isOverdue(task, today)) : filtered;
-  const accepted = filtered.filter((task) => task.status === 'accepted');
-  const overdue = filtered.filter((task) => isOverdue(task, today));
-  const waiting = filtered.filter((task) => task.status === 'submitted');
-  const dueCohort = filtered.filter((task) => (daysUntil(task.originalDueDate, today) ?? 1) < 0);
-  const onTime = dueCohort.filter(
-    (task) =>
-      task.status === 'accepted' &&
-      task.acceptedAt &&
-      (daysUntil(task.originalDueDate, task.acceptedAt) ?? -1) >= 0,
-  );
-  const unitRows = Array.from(new Set(filtered.map((task) => task.unit))).map((name) => {
-    const tasks = filtered.filter((task) => task.unit === name);
-    return {
-      name,
-      total: tasks.length,
-      active: tasks.filter((task) => !['accepted', 'cancelled'].includes(task.status)).length,
-      accepted: tasks.filter((task) => task.status === 'accepted').length,
-      overdue: tasks.filter((task) => isOverdue(task, today)).length,
-      waiting: tasks.filter((task) => task.status === 'submitted').length,
-    };
-  });
+  const usersById = useMemo(() => new Map(users.map((person) => [person.id, person])), [users]);
+  const shown = view === 'overdue' ? overdue : filtered;
 
   async function exportSource() {
     if (!permissions.includes('report.export'))
@@ -111,25 +98,17 @@ export function ReportsScreen() {
     try {
       const source = await exportSource();
       const current = source.state;
-      const tasks = current.tasks.filter((task) => {
-        const resolution = current.resolutions.find((item) => item.id === task.resolutionId);
-        return (
-          (unit === 'all' || task.unit === unit) &&
-          (meetingId === 'all' || resolution?.meetingId === meetingId)
-        );
-      });
-      const selected = view === 'overdue' ? tasks.filter((task) => isOverdue(task, today)) : tasks;
-      const grouped = [...new Set(tasks.map((task) => task.unit))].map((name) => {
-        const group = tasks.filter((task) => task.unit === name);
-        return [
-          name,
-          group.length,
-          group.filter((task) => !['accepted', 'cancelled'].includes(task.status)).length,
-          group.filter((task) => task.status === 'submitted').length,
-          group.filter((task) => isOverdue(task, today)).length,
-          group.filter((task) => task.status === 'accepted').length,
-        ];
-      });
+      const report = selectReportModel(current, { unit, meetingId, today });
+      const sourceUsersById = new Map(source.users.map((person) => [person.id, person]));
+      const selected = view === 'overdue' ? report.overdue : report.tasks;
+      const grouped = report.unitRows.map((row) => [
+        row.name,
+        row.total,
+        row.active,
+        row.waiting,
+        row.overdue,
+        row.accepted,
+      ]);
       const rows: (string | number)[][] =
         view === 'units'
           ? [
@@ -151,10 +130,10 @@ export function ReportsScreen() {
               ],
               ...selected.map((task) => [
                 task.code,
-                current.resolutions.find((item) => item.id === task.resolutionId)?.code ?? '',
+                report.resolutionsById.get(task.resolutionId)?.code ?? '',
                 task.title,
                 task.unit,
-                source.users.find((person) => person.id === task.ownerId)?.name ?? '',
+                sourceUsersById.get(task.ownerId)?.name ?? '',
                 task.originalDueDate,
                 task.dueDate,
                 statusLabels[task.status],
@@ -399,17 +378,10 @@ export function ReportsScreen() {
                         {task.title}
                       </Link>
                       <div className="muted text-small mt-1">
-                        {task.code} ·{' '}
-                        {
-                          state.resolutions.find(
-                            (resolution) => resolution.id === task.resolutionId,
-                          )?.code
-                        }
+                        {task.code} · {resolutionsById.get(task.resolutionId)?.code}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap">
-                      {users.find((person) => person.id === task.ownerId)?.name}
-                    </td>
+                    <td className="whitespace-nowrap">{usersById.get(task.ownerId)?.name}</td>
                     <td className="whitespace-nowrap text-sm text-[#64757a]">
                       {formatThaiDate(task.originalDueDate)}
                     </td>

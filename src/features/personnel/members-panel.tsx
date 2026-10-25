@@ -2,7 +2,7 @@
 import { Avatar, Badge, Button, EmptyState, Panel } from '@/components/ui';
 import styles from '@/features/personnel/team.module.css';
 import { ACCESS_ROLES, accessRoleLabels, type AccessRole } from '@/lib/access-control';
-import { isOverdue } from '@/lib/workflow';
+import { EMPTY_TASK_COUNTS } from '@/lib/workspace-selectors';
 import { ArrowRight, LockKeyhole, Search, Users } from 'lucide-react';
 import { workRoleLabels } from './personnel-model';
 import type { TeamModel } from './use-team';
@@ -24,7 +24,7 @@ export function MembersPanel({
     | 'setRoleFilter'
     | 'ready'
     | 'state'
-    | 'today'
+    | 'taskIndex'
     | 'getRole'
     | 'adminCount'
     | 'selectedId'
@@ -49,7 +49,7 @@ export function MembersPanel({
     setRoleFilter,
     ready,
     state,
-    today,
+    taskIndex,
     getRole,
     adminCount,
     selectedId,
@@ -144,11 +144,7 @@ export function MembersPanel({
             </thead>
             <tbody>
               {filtered.map((person) => {
-                const activeTasks = state.tasks.filter(
-                  (task) =>
-                    task.ownerId === person.id && !['accepted', 'cancelled'].includes(task.status),
-                );
-                const overdue = activeTasks.filter((task) => isOverdue(task, today)).length;
+                const { active, overdue } = taskIndex.byOwner.get(person.id) ?? EMPTY_TASK_COUNTS;
                 const memberRole = getRole(person);
                 const pending = person.membershipStatus === 'pending';
                 const lastAdmin = !pending && memberRole === 'admin' && adminCount <= 1;
@@ -230,7 +226,7 @@ export function MembersPanel({
                         <span className={styles.pendingWork}>ยังไม่เริ่มใช้งาน</span>
                       ) : (
                         <>
-                          {activeTasks.length}
+                          {active}
                           <span className={styles.countUnit}>งาน</span>
                         </>
                       )}

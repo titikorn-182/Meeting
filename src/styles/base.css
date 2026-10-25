@@ -1,0 +1,76 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans Thai', sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button,
+select {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+button,
+input,
+textarea,
+select,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+:focus-visible {
+  outline: 3px solid #c88738;
+  outline-offset: 3px;
+}
+::selection {
+  background: #f4d9b2;
+  color: #253b40;
+}
+input,
+textarea {
+  caret-color: var(--accent);
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  line-height: 1.45;
+  font-weight: 600;
+  text-wrap: balance;
+}
+h1 {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+h2 {
+  font-size: 17px;
+}
+h3 {
+  font-size: 15px;
+}
+svg {
+  flex-shrink: 0;
+}

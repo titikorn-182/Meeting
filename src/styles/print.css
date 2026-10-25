@@ -1,0 +1,42 @@
+@media print {
+  .sidebar,
+  .topbar,
+  .demo-strip,
+  .app-footer,
+  .toast-region,
+  .page-header-actions,
+  .no-print {
+    display: none !important;
+  }
+  .app-frame {
+    margin: 0;
+  }
+  .main-content {
+    padding: 0;
+    max-width: none;
+  }
+  body {
+    background: #fff;
+    color: #172c2b;
+    font-size: 10pt;
+  }
+  .panel {
+    break-inside: avoid;
+  }
+  .table-scroll {
+    overflow: visible;
+  }
+  .data-table {
+    min-width: 0;
+  }
+  .button {
+    display: none;
+  }
+  .page-stack {
+    gap: 16px;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 15mm;
+  }
+}

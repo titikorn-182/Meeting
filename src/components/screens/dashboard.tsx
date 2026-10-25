@@ -18,22 +18,21 @@ import {
 import clsx from 'clsx';
 import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, EmptyState, PageHeader, ProgressBar } from '@/components/ui';
-import {
-  formatThaiDate,
-  getDashboardMetrics,
-  getResolutionProgress,
-  isOverdue,
-} from '@/lib/workflow';
+import { formatThaiDate, getDashboardMetrics } from '@/lib/workflow';
+
+import { buildTaskIndex, EMPTY_RESOLUTION_TASKS } from '@/lib/workspace-selectors';
 
 export function Dashboard() {
   const { state, user, permissions, users, today } = useWorkspace();
   const [tab, setTab] = useState('active');
+  const taskIndex = useMemo(() => buildTaskIndex(state.tasks, today), [state.tasks, today]);
+  const usersById = useMemo(() => new Map(users.map((person) => [person.id, person])), [users]);
   const metrics = useMemo(() => getDashboardMetrics(state, today), [state, today]);
   const nextMeeting = state.meetings
     .filter((meeting) => meeting.status === 'scheduled' && meeting.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
   const lateIds = new Set(
-    state.tasks.filter((task) => isOverdue(task, today)).map((task) => task.resolutionId),
+    [...taskIndex.byResolution].filter(([, group]) => group.overdue > 0).map(([id]) => id),
   );
   const displayed = state.resolutions
     .filter((resolution) =>
@@ -44,16 +43,18 @@ export function Dashboard() {
           : ['open', 'pending_close'].includes(resolution.status),
     )
     .slice(0, 5);
-  const stages = [
-    { status: 'assigned', label: 'รอเริ่มงาน', color: '#b5c3ba' },
-    { status: 'in_progress', label: 'กำลังดำเนินการ', color: '#557e87' },
-    { status: 'submitted', label: 'รอตรวจ', color: '#deb471' },
-    { status: 'revision', label: 'ให้แก้ไข', color: '#c77e69' },
-    { status: 'accepted', label: 'ตรวจรับแล้ว', color: '#7ea68b' },
-    { status: 'cancelled', label: 'ยกเลิก', color: '#d1d9d4' },
-  ].map((stage) => ({
+  const stages = (
+    [
+      { status: 'assigned', label: 'รอเริ่มงาน', color: '#b5c3ba' },
+      { status: 'in_progress', label: 'กำลังดำเนินการ', color: '#557e87' },
+      { status: 'submitted', label: 'รอตรวจ', color: '#deb471' },
+      { status: 'revision', label: 'ให้แก้ไข', color: '#c77e69' },
+      { status: 'accepted', label: 'ตรวจรับแล้ว', color: '#7ea68b' },
+      { status: 'cancelled', label: 'ยกเลิก', color: '#d1d9d4' },
+    ] as const
+  ).map((stage) => ({
     ...stage,
-    count: state.tasks.filter((task) => task.status === stage.status).length,
+    count: taskIndex.statusCounts[stage.status],
   }));
   return (
     <div className="page-stack dashboard-page">
@@ -203,11 +204,11 @@ export function Dashboard() {
                 </thead>
                 <tbody>
                   {displayed.map((resolution) => {
-                    const tasks = state.tasks.filter((task) => task.resolutionId === resolution.id);
-                    const accepted = tasks.filter((task) => task.status === 'accepted').length;
-                    const coordinator = users.find(
-                      (person) => person.id === resolution.coordinatorId,
-                    );
+                    const group =
+                      taskIndex.byResolution.get(resolution.id) ?? EMPTY_RESOLUTION_TASKS;
+                    const tasks = group.tasks;
+                    const accepted = group.accepted;
+                    const coordinator = usersById.get(resolution.coordinatorId);
                     return (
                       <tr key={resolution.id}>
                         <td>
@@ -222,7 +223,7 @@ export function Dashboard() {
                           </div>
                         </td>
                         <td>
-                          <ProgressBar value={getResolutionProgress(resolution.id, state.tasks)} />
+                          <ProgressBar value={group.progress} />
                           <span className="table-subtitle">
                             ตรวจรับ {accepted}/{tasks.length} งาน
                           </span>
@@ -355,10 +356,7 @@ export function Dashboard() {
               <Avatar userId={event.actorId} size="sm" />
               <div>
                 <p>
-                  <strong>
-                    {users.find((person) => person.id === event.actorId)?.name.split(' ')[0] ??
-                      'ผู้ใช้งาน'}
-                  </strong>{' '}
+                  <strong>{usersById.get(event.actorId)?.name.split(' ')[0] ?? 'ผู้ใช้งาน'}</strong>{' '}
                   {event.action}
                 </p>
                 <span>{event.targetLabel}</span>

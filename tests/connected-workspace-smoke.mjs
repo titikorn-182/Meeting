@@ -63,6 +63,39 @@ try {
   await expect(page.getByRole('button', { name: 'คืนค่าตั้งต้น', exact: true })).toHaveCount(0);
   await expect(page.locator('#reminder-days')).toHaveValue('14, 7');
   await page.locator('#reminder-days').fill('7, 3, 1');
+  // A fresh but identical snapshot must not erase an unsaved draft.
+  async function refreshSettings() {
+    const loaded = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/workspace') && response.request().method() === 'GET',
+    );
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await loaded;
+    await expect(page.getByRole('button', { name: 'บันทึกการตั้งค่า', exact: true })).toBeEnabled();
+  }
+  await refreshSettings();
+  await expect(page.locator('#reminder-days')).toHaveValue('7, 3, 1');
+  await page.getByRole('tab', { name: 'ประวัติกิจกรรม' }).click();
+  await expect(page.locator('#reminder-days')).toBeHidden();
+  await page.getByRole('tab', { name: 'การติดตามและแจ้งเตือน' }).click();
+  await expect(page.locator('#reminder-days')).toHaveValue('7, 3, 1');
+  // A real authoritative settings change resets stale edits.
+  response = {
+    status: 200,
+    body: {
+      ...payload,
+      state: { ...payload.state, settings: { ...payload.state.settings, reminderDays: [21, 7] } },
+    },
+  };
+  const changed = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/workspace') && response.request().method() === 'GET',
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await changed;
+  await expect(page.locator('#reminder-days')).toHaveValue('21, 7');
+  await expect(page.getByRole('button', { name: 'บันทึกการตั้งค่า', exact: true })).toBeDisabled();
+  await page.locator('#reminder-days').fill('7, 3, 1');
   await page.getByRole('button', { name: 'บันทึกการตั้งค่า', exact: true }).click();
   await expect.poll(() => writes.length).toBe(1);
   assert.equal(writes[0].operation, 'update_settings');
@@ -127,6 +160,8 @@ try {
       connectedReads: true,
       connectedWrites: true,
       connectedSettings: true,
+      settingsDraftSurvivesRefreshAndTabs: true,
+      settingsDraftResetsOnAuthoritativeChange: true,
       connectedFeatureScreens: true,
       failureNeverFallsBack: true,
       demoStorageUntouched: true,

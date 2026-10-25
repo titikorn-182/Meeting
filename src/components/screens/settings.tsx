@@ -1,88 +1,24 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
-import { BellRing, CircleHelp, History, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { BellRing, CircleHelp, History, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { useWorkspace } from '@/components/workspace-context';
-import { Badge, Button, Dialog, EmptyState, Field, PageHeader, Panel } from '@/components/ui';
+import { Badge, Button, Dialog, EmptyState, PageHeader, Panel } from '@/components/ui';
 import { formatThaiDate } from '@/lib/workflow';
-import type { WorkspaceSettings } from '@/lib/types';
+import { TrackingSettingsForm } from '@/features/settings/tracking-settings-form';
 
 export function SettingsScreen() {
-  const {
-    state,
-    defaultSettings,
-    notify,
-    updateSettings,
-    resetDemo,
-    mode,
-    permissions,
-    users,
-    busy,
-  } = useWorkspace();
+  const { state, resetDemo, mode, users, busy } = useWorkspace();
   const [tab, setTab] = useState<'preferences' | 'audit'>('preferences');
-  const [reminders, setReminders] = useState(state.settings.reminderDays.join(', '));
-  const [acknowledgmentDays, setAcknowledgmentDays] = useState(state.settings.acknowledgmentDays);
-  const [reviewDays, setReviewDays] = useState(state.settings.reviewDays);
-  const [emailNotifications, setEmailNotifications] = useState(state.settings.emailNotifications);
-  const [error, setError] = useState('');
+  const [resetVersion, setResetVersion] = useState(0);
   const [resetOpen, setResetOpen] = useState(false);
   const [auditQuery, setAuditQuery] = useState('');
-  const canEdit = permissions.includes('policy.manage');
-  useEffect(() => {
-    setReminders(state.settings.reminderDays.join(', '));
-    setAcknowledgmentDays(state.settings.acknowledgmentDays);
-    setReviewDays(state.settings.reviewDays);
-    setEmailNotifications(state.settings.emailNotifications);
-  }, [state.settings]);
-  const dirty =
-    reminders !== state.settings.reminderDays.join(', ') ||
-    acknowledgmentDays !== state.settings.acknowledgmentDays ||
-    reviewDays !== state.settings.reviewDays ||
-    emailNotifications !== state.settings.emailNotifications;
+  const usersById = useMemo(() => new Map(users.map((person) => [person.id, person])), [users]);
   const auditEvents = state.audit.filter((event) =>
-    `${event.action} ${event.targetLabel} ${event.detail} ${users.find((person) => person.id === event.actorId)?.name ?? ''}`.includes(
+    `${event.action} ${event.targetLabel} ${event.detail} ${usersById.get(event.actorId)?.name ?? ''}`.includes(
       auditQuery,
     ),
   );
-
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    const values = reminders.split(/[,\s]+/).filter(Boolean);
-    if (!values.length || values.some((value) => !/^\d+$/.test(value) || Number(value) > 365)) {
-      setError('ระบุจำนวนวันเป็นจำนวนเต็ม 0–365 คั่นด้วยจุลภาค เช่น 7, 3, 0');
-      return;
-    }
-    if (
-      !Number.isInteger(acknowledgmentDays) ||
-      !Number.isInteger(reviewDays) ||
-      acknowledgmentDays < 1 ||
-      acknowledgmentDays > 30 ||
-      reviewDays < 1 ||
-      reviewDays > 30
-    ) {
-      setError('ระยะเวลารับทราบและตรวจผลต้องเป็นจำนวนเต็ม 1–30 วันทำการ');
-      return;
-    }
-    const settings: WorkspaceSettings = {
-      reminderDays: [...new Set(values.map(Number))].sort((a, b) => b - a),
-      acknowledgmentDays,
-      reviewDays,
-      emailNotifications,
-    };
-    if (await updateSettings(settings)) {
-      setError('');
-    }
-  }
-
-  function restoreSettings() {
-    setReminders(defaultSettings.reminderDays.join(', '));
-    setAcknowledgmentDays(defaultSettings.acknowledgmentDays);
-    setReviewDays(defaultSettings.reviewDays);
-    setEmailNotifications(defaultSettings.emailNotifications);
-    setError('');
-    notify('คืนค่าตั้งต้นในแบบฟอร์มแล้ว กดบันทึกเพื่อใช้ค่าเหล่านี้', 'info');
-  }
 
   return (
     <div className="page-stack">
@@ -112,120 +48,19 @@ export function SettingsScreen() {
           ประวัติกิจกรรม
         </button>
       </div>
-      {tab === 'preferences' ? (
+      <div hidden={tab !== 'preferences'}>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
           <div className="stack">
-            <Panel
-              title="รอบการแจ้งเตือน"
-              description="ค่าตั้งต้นสำหรับการติดตามงานและตรวจรับผลงาน"
-            >
-              {!canEdit && (
-                <div className="inline-alert warning mb-5">
-                  บัญชีนี้ดูการตั้งค่าได้ การเปลี่ยนแปลงต้องดำเนินการโดยผู้มีสิทธิจัดการนโยบาย
-                </div>
-              )}
-              <form className="stack" onSubmit={handleSave}>
-                <Field
-                  label="แจ้งเตือนก่อนวันครบกำหนด"
-                  htmlFor="reminder-days"
-                  required
-                  hint="แยกจำนวนวันด้วยจุลภาค โดย 0 คือแจ้งในวันครบกำหนด"
-                >
-                  <input
-                    id="reminder-days"
-                    className="input"
-                    value={reminders}
-                    onChange={(event) => setReminders(event.target.value)}
-                    disabled={!canEdit}
-                    placeholder="7, 3, 0"
-                    required
-                    aria-describedby={error ? 'settings-error' : undefined}
-                  />
-                </Field>
-                <div className="form-grid">
-                  <Field label="รับทราบงานภายใน" htmlFor="ack-days" hint="วันทำการหลังมอบหมาย">
-                    <div className="flex items-center gap-3">
-                      <input
-                        id="ack-days"
-                        className="input"
-                        type="number"
-                        min={1}
-                        max={30}
-                        step={1}
-                        value={acknowledgmentDays}
-                        disabled={!canEdit}
-                        onChange={(event) => setAcknowledgmentDays(Number(event.target.value))}
-                        required
-                      />
-                      <span className="muted shrink-0 text-sm">วันทำการ</span>
-                    </div>
-                  </Field>
-                  <Field label="ตรวจผลภายใน" htmlFor="review-days" hint="วันทำการหลังส่งตรวจ">
-                    <div className="flex items-center gap-3">
-                      <input
-                        id="review-days"
-                        className="input"
-                        type="number"
-                        min={1}
-                        max={30}
-                        step={1}
-                        value={reviewDays}
-                        disabled={!canEdit}
-                        onChange={(event) => setReviewDays(Number(event.target.value))}
-                        required
-                      />
-                      <span className="muted shrink-0 text-sm">วันทำการ</span>
-                    </div>
-                  </Field>
-                </div>
-                <div className="border-t border-[#e0e7e5] pt-5">
-                  <label className="flex items-start gap-3" htmlFor="email-preference">
-                    <input
-                      id="email-preference"
-                      className="mt-1 h-4 w-4 accent-[#53756b]"
-                      type="checkbox"
-                      checked={emailNotifications}
-                      disabled={!canEdit}
-                      onChange={(event) => setEmailNotifications(event.target.checked)}
-                    />
-                    <span>
-                      <span className="block text-sm font-medium">
-                        ต้องการรับการแจ้งเตือนทางอีเมล
-                      </span>
-                      <span className="muted text-small mt-1 block">
-                        บันทึกความต้องการไว้เท่านั้น ยังไม่เปิดบริการส่งอีเมล
-                      </span>
-                    </span>
-                  </label>
-                </div>
-                {error && (
-                  <p id="settings-error" role="alert" className="inline-alert error">
-                    {error}
-                  </p>
-                )}
-                <div className="form-actions">
-                  {mode === 'demo' && (
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      onClick={restoreSettings}
-                      disabled={busy || !canEdit}
-                    >
-                      <RotateCcw size={15} />
-                      คืนค่าตั้งต้น
-                    </Button>
-                  )}
-                  <Button
-                    type="submit"
-                    disabled={busy || !canEdit || !dirty}
-                    title={!dirty ? 'ค่าตรงกับที่บันทึกไว้แล้ว' : undefined}
-                  >
-                    <Save size={16} />
-                    บันทึกการตั้งค่า
-                  </Button>
-                </div>
-              </form>
-            </Panel>
+            <TrackingSettingsForm
+              key={JSON.stringify([
+                resetVersion,
+                state.settings.reminderDays,
+                state.settings.acknowledgmentDays,
+                state.settings.reviewDays,
+                state.settings.emailNotifications,
+              ])}
+              settings={state.settings}
+            />
             {mode === 'demo' && (
               <Panel
                 title="เริ่มการทดลองใหม่"
@@ -284,7 +119,8 @@ export function SettingsScreen() {
             </div>
           </div>
         </div>
-      ) : (
+      </div>
+      {tab === 'audit' && (
         <Panel
           title="ประวัติกิจกรรม"
           description="แสดงผู้กระทำ รายการที่เกี่ยวข้อง และรายละเอียดการเปลี่ยนแปลง"
@@ -333,7 +169,7 @@ export function SettingsScreen() {
                         <div className="muted text-small mt-1">{event.targetLabel}</div>
                       </td>
                       <td className="whitespace-nowrap text-sm">
-                        {users.find((person) => person.id === event.actorId)?.name ?? 'ระบบ'}
+                        {usersById.get(event.actorId)?.name ?? 'ระบบ'}
                       </td>
                       <td className="min-w-64 text-sm text-[#64757a]">{event.detail}</td>
                     </tr>
@@ -375,7 +211,7 @@ export function SettingsScreen() {
               onClick={() => {
                 resetDemo();
                 setResetOpen(false);
-                setError('');
+                setResetVersion((version) => version + 1);
               }}
             >
               ยืนยันเริ่มใหม่

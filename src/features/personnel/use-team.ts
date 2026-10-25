@@ -2,8 +2,10 @@
 import { useWorkspace } from '@/components/workspace-context';
 import { WORKSPACE_PAGES, accessRoleLabels, type AccessRole } from '@/lib/access-control';
 import type { User } from '@/lib/types';
-import { useState, type KeyboardEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import { workRoleLabels, type RoleChange } from './personnel-model';
+
+import { buildTaskIndex } from '@/lib/workspace-selectors';
 
 export function useTeam() {
   const {
@@ -46,9 +48,8 @@ export function useTeam() {
         .includes(searchText),
   );
   const selected = users.find((person) => person.id === selectedId);
-  const selectedTasks = state.tasks.filter(
-    (task) => task.ownerId === selectedId || task.reviewerId === selectedId,
-  );
+  const taskIndex = useMemo(() => buildTaskIndex(state.tasks, today), [state.tasks, today]);
+  const selectedTasks = taskIndex.byParticipant.get(selectedId ?? '') ?? [];
   const nextPages = roleChange
     ? roleChange.to === 'admin'
       ? WORKSPACE_PAGES.map((page) => page.key)
@@ -130,6 +131,7 @@ export function useTeam() {
     document.getElementById(`team-tab-${next}`)?.focus();
   }
   return {
+    taskIndex,
     isAdmin,
     access,
     ready,

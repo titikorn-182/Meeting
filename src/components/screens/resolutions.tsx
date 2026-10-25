@@ -1,7 +1,7 @@
 'use client';
 
 import { AccessLink as Link } from '@/components/app-shell';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowRight,
   ChevronLeft,
@@ -13,18 +13,20 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, EmptyState, PageHeader, ProgressBar } from '@/components/ui';
-import { formatThaiDate, getResolutionProgress, isOverdue } from '@/lib/workflow';
+import { formatThaiDate } from '@/lib/workflow';
 
-export function ResolutionsScreen() {
+import { buildTaskIndex, EMPTY_RESOLUTION_TASKS } from '@/lib/workspace-selectors';
+
+const PAGE_SIZE = 8;
+
+export function ResolutionsScreen({ initialStatus = 'all' }: { initialStatus?: string }) {
   const { state, permissions, users, today } = useWorkspace();
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
+  const [status, setStatus] = useState(initialStatus);
   const [type, setType] = useState('all');
   const [page, setPage] = useState(1);
-  useEffect(() => {
-    const selected = new URLSearchParams(window.location.search).get('status');
-    if (selected) setStatus(selected);
-  }, []);
+  const taskIndex = useMemo(() => buildTaskIndex(state.tasks, today), [state.tasks, today]);
+  const usersById = useMemo(() => new Map(users.map((person) => [person.id, person])), [users]);
   const filtered = state.resolutions.filter(
     (resolution) =>
       `${resolution.title} ${resolution.code} ${resolution.content}`.includes(query) &&
@@ -34,9 +36,9 @@ export function ResolutionsScreen() {
           : resolution.status === status)) &&
       (type === 'all' || resolution.type === type),
   );
-  const pageCount = Math.max(1, Math.ceil(filtered.length / 8));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  const items = filtered.slice((safePage - 1) * 8, safePage * 8);
+  const items = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   function resetFilters() {
     setQuery('');
     setStatus('all');
@@ -146,9 +148,10 @@ export function ResolutionsScreen() {
               </thead>
               <tbody>
                 {items.map((resolution) => {
-                  const tasks = state.tasks.filter((item) => item.resolutionId === resolution.id);
-                  const person = users.find((item) => item.id === resolution.coordinatorId);
-                  const late = tasks.some((item) => isOverdue(item, today));
+                  const group = taskIndex.byResolution.get(resolution.id) ?? EMPTY_RESOLUTION_TASKS;
+                  const tasks = group.tasks;
+                  const person = usersById.get(resolution.coordinatorId);
+                  const late = group.overdue > 0;
                   return (
                     <tr key={resolution.id}>
                       <td>
@@ -170,9 +173,7 @@ export function ResolutionsScreen() {
                       <td>
                         {tasks.length ? (
                           <>
-                            <ProgressBar
-                              value={getResolutionProgress(resolution.id, state.tasks)}
-                            />
+                            <ProgressBar value={group.progress} />
                             <span className="table-subtitle">{tasks.length} งานที่เกี่ยวข้อง</span>
                           </>
                         ) : (
@@ -211,8 +212,8 @@ export function ResolutionsScreen() {
         )}
         <div className="table-footer">
           <span>
-            แสดง {filtered.length ? (safePage - 1) * 8 + 1 : 0}–
-            {Math.min(safePage * 8, filtered.length)} จาก {filtered.length} เรื่อง
+            แสดง {filtered.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–
+            {Math.min(safePage * PAGE_SIZE, filtered.length)} จาก {filtered.length} เรื่อง
           </span>
           <div className="cluster">
             <button

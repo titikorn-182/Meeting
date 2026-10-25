@@ -1,0 +1,78 @@
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* Dense metadata remains legible on Thai office and mobile displays. */
+.table-subtitle,
+.progress-label,
+.badge,
+.resolution-code,
+.filter-total,
+.count-label,
+.workflow-legend a,
+.workflow-heading p span,
+.table-person,
+.overview-metric p,
+.followup-queue small,
+.activity-item small,
+.activity-item span:not(.avatar),
+.meeting-location,
+.meeting-date small,
+.app-footer,
+.demo-strip {
+  font-size: 11px;
+}
+.table-subtitle,
+.progress-label,
+.table-person,
+.resolution-code,
+.overview-metric p,
+.activity-item span:not(.avatar),
+.activity-item small {
+  color: #5c7068;
+}
+.workflow-legend a {
+  color: #596d64;
+}
+.overview-metric > span {
+  color: #5c7068;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.data-table th,
+.app-footer,
+.demo-strip,
+.empty-state,
+.back-link,
+.meeting-date small,
+.meeting-location,
+.upcoming-meeting > p,
+.criterion-number,
+.timeline-item small {
+  color: var(--muted);
+}
+.table-scroll {
+  overscroll-behavior-x: contain;
+}
+@media (max-width: 680px) {
+  .overview-metric p,
+  .workflow-legend a,
+  .app-footer,
+  .demo-strip {
+    font-size: 11px;
+  }
+  .followup-queue strong,
+  .dashboard-tabs .tab,
+  .table-footer,
+  .text-link {
+    font-size: 12px;
+  }
+}

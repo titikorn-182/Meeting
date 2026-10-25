@@ -1,4 +1,4 @@
-# Quality checks (phases 1–5)
+# Quality checks (phases 1–6)
 
 Run `npm ci`, then `npm run check` before submitting changes. The GitHub workflow runs these checks and a production build on pushes and pull requests. It needs no hosted database credentials. The workflow runs on GitHub only after the changes are pushed.
 
@@ -13,14 +13,43 @@ Run `npm ci`, then `npm run check` before submitting changes. The GitHub workflo
 - `npm run check` runs all of the above checks in sequence and stops on failure.
 - `npm run build` checks production compilation separately.
 
-## Existing React warnings
+## React warnings
 
-Two existing React warnings are temporarily allowed, with a warning ceiling of two. New feature files retain the normal recommended rules. Scoped warnings remain visible; do not raise the ceiling to accommodate new violations.
+All scoped React warning overrides are removed. ESLint now uses `--max-warnings 0`; React, security and type rules keep their normal severity. The last effect-driven state resets in the resolution listing and settings form are replaced in phase 6 with route props and a value-keyed form, with browser regression coverage.
 
-- `resolutions.tsx`, `settings.tsx`: effect-driven UI state synchronization remains in the listing and settings screens, outside the three detail/personnel screens refactored in phase 4.
-- The connected provider's mutable-ref cleanup warning is resolved in phase 5: a session controller owns cancellation and a captured controller instance is stopped during effect cleanup.
+## Styles and derived data (phase 6)
 
-Fix these with focused UI regression coverage during the corresponding refactor, then remove the scoped overrides and reduce the ceiling. Security and type rules are not downgraded.
+`app/globals.css` is an ordered entry point. Shared CSS remains imported once at the root layout because Next.js does not unload global styles on route navigation. Existing Login and Team CSS Modules remain scoped to their features. Import order deliberately preserves the original cascade:
+
+```text
+src/styles/
+  tokens.css               # Tailwind theme and shared CSS variables
+  base.css                 # Reset, typography, focus, accessible helpers
+  shell.css                # Navigation, header, workspace layout
+  components.css           # Shared panels, controls, tables, dialogs, toasts
+  overlays.css             # Search results, loading, mobile drawer
+  screens/dashboard.css    # Dashboard-specific selectors
+  screens/resolutions.css  # Register, resolution detail and related layouts
+  responsive.css           # Existing breakpoint overrides in cascade order
+  refinements.css          # Reduced motion and final readability overrides
+  print.css                # Print overrides, last
+```
+
+This split improves ownership and navigation; it does not claim to reduce shipped CSS. A one-time PostCSS tree comparison against phase 5 confirmed identical rule order and values except for `position: relative` on `.table-scroll`. This gives absolutely positioned screen-reader text a containing block inside the scrolling table and fixes document-width overflow on mobile reports without hiding page overflow. Impeccable's mechanical check reported 116 advisory palette/type-size/radius differences from DESIGN.md, all carried over from existing styling. They are documented design-system cleanup work, not a reason to redesign this refactor.
+
+`lib/workspace-selectors.ts` groups tasks by resolution, owner and participant in one pass and exposes explicit readonly result types. Dashboard, resolution register and personnel lists reuse these indexes with component-local memoization. Report filtering, unit totals and historical deadline calculations share one selector between the screen and CSV export. Missing relations stay missing; the selectors use only the supplied authorized snapshot, with no cross-account cache or additional fetching. Export permission revalidation and server authorization are unchanged. Cancelled tasks remain in the original due-date cohort, while accepted timestamps use the Bangkok calendar day; this preserves the existing report definition.
+
+Date helpers reuse immutable default `Intl.DateTimeFormat` objects. Custom formatting options still create a separate formatter. No user data is cached globally.
+
+`features/settings/tracking-settings-form.tsx` owns its draft and validation. Its key changes only when authoritative settings values change or the demo reset is requested. An identical polling response or a switch to the audit tab preserves unsaved edits. Actual changed server values replace stale edits. Resolution routes await Next.js `searchParams` and pass an initial filter; URL changes remount the listing without an effect-driven state reset.
+
+Validation and reproducible measurements:
+
+- `npm test` covers grouping equivalence, progress clamping, participant deduplication, snapshot isolation, combined filters, deadline cohorts, invalid dates, custom date formats and Bangkok midnight boundaries.
+- `npm run test:report-ui` checks direct/client resolution query links, pagination reset, four report filter combinations and all three CSV views against the original report algorithm. Use a demo server and `WORKSPACE_SMOKE_BASE_URL` (default port 3101).
+- `npm run test:connected-ui` additionally checks drafts across identical refreshes and tab changes, then replacement on real server settings changes. Responses are intercepted; this is not hosted Supabase validation.
+- `npm run test:styles-ui` compares five screens at 1366px and 390px, including computed styles, viewport screenshots, overflow and runtime errors. First capture the old revision with `STYLE_PHASE=before`, then run the changed revision with `STYLE_PHASE=after` on the same machine/browser. Baselines and full-page inspection images live in ignored `.test-artifacts/phase6-visual`; the test requires that local baseline and is not a portable CI screenshot snapshot. All ten phase-6 viewport images and computed-style captures matched; mobile overflow was resolved.
+- `npm run benchmark:selectors` compares old and new algorithms on 20,000 synthetic tasks, 2,000 resolutions and 100 units, checking output equivalence first. On this Windows workspace, median of five warmed runs: report selection 355ms → 168ms; all-resolution row summaries 1,415ms → 63ms. Both versions in this comparison use the updated date helper. These are local computation measurements, not page-load or production latency guarantees; real screens paginate and their data sizes vary.
 
 ## Auth and workspace lifetime (phase 5)
 

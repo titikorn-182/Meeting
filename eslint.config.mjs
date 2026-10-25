@@ -7,11 +7,6 @@ export default defineConfig([
   ...nextVitals,
   ...nextTypescript,
   prettier,
-  // Remaining screen synchronization is tracked in QUALITY.md.
-  {
-    files: ['src/components/screens/resolutions.tsx', 'src/components/screens/settings.tsx'],
-    rules: { 'react-hooks/set-state-in-effect': 'warn' },
-  },
   globalIgnores([
     '.next*/**',
     'out/**',

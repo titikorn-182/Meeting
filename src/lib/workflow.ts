@@ -11,6 +11,20 @@ import type {
 const DAY_MS = 86_400_000;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
+const calendarDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Bangkok',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const thaiDateOptions: Intl.DateTimeFormatOptions = {
+  timeZone: 'Asia/Bangkok',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+};
+const thaiDateFormatter = new Intl.DateTimeFormat('th-TH', thaiDateOptions);
+
 function calendarDate(value: string): string | null {
   if (DATE_ONLY.test(value)) {
     const parsed = new Date(`${value}T00:00:00Z`);
@@ -20,12 +34,7 @@ function calendarDate(value: string): string | null {
   }
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) return null;
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(parsed);
+  const parts = calendarDateFormatter.formatToParts(parsed);
   const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
@@ -42,13 +51,11 @@ export function daysUntil(date: string | undefined, today: string): number | nul
 export function formatThaiDate(date?: string, options: Intl.DateTimeFormatOptions = {}): string {
   if (!date || !calendarDate(date)) return '—';
   const parsed = new Date(DATE_ONLY.test(date) ? `${date}T12:00:00+07:00` : date);
-  return new Intl.DateTimeFormat('th-TH', {
-    timeZone: 'Asia/Bangkok',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    ...options,
-  }).format(parsed);
+  const formatter =
+    Object.keys(options).length === 0
+      ? thaiDateFormatter
+      : new Intl.DateTimeFormat('th-TH', { ...thaiDateOptions, ...options });
+  return formatter.format(parsed);
 }
 
 export function isOverdue(task: Task, today: string): boolean {
