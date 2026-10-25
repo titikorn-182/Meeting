@@ -1,6 +1,7 @@
 import { decodeWorkspaceSnapshot } from '@/lib/workspace-schema';
 import { decodeCommandResult } from '@/lib/workspace-commands';
 import { getVerifiedUser } from '@/lib/supabase/server';
+import { workspaceAuthFailure } from '@/lib/supabase/auth-failure';
 import { SupabaseConfigurationError, requireSupabaseConfiguration } from '@/lib/supabase/config';
 import { isPersonnelClaimUnavailable, needsVerifiedPersonnelEmail } from '@/lib/supabase/personnel';
 import { WorkspaceError } from '@/lib/workspace';
@@ -31,11 +32,7 @@ function fail(error: unknown) {
 }
 async function clientForUser() {
   const result = await getVerifiedUser();
-  if (!result.user) {
-    if (result.error && result.error.status && result.error.status >= 500)
-      throw new WorkspaceError('CONNECTION_FAILED', 503);
-    throw new WorkspaceError('UNAUTHENTICATED', 401);
-  }
+  if (!result.user) throw workspaceAuthFailure(result.error);
   return result.client;
 }
 

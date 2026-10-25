@@ -26,7 +26,7 @@ import {
 import clsx from 'clsx';
 import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Dialog, EmptyState } from '@/components/ui';
-import { signOut } from '@/app/auth/actions';
+import { SignOutForm } from '@/features/auth/sign-out-form';
 import { formatThaiDate } from '@/lib/workflow';
 import {
   accessRoleLabels,
@@ -276,11 +276,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               </label>
             )}
             {mode === 'supabase' && (
-              <form action={signOut}>
-                <button className="button button-ghost button-sm" type="submit" disabled={busy}>
-                  ออกจากระบบ
-                </button>
-              </form>
+              <SignOutForm
+                label="ออกจากระบบ"
+                className="button button-ghost button-sm"
+                disabled={busy}
+              />
             )}
             <AccessLink
               className="icon-button notification-button"

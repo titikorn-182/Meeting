@@ -1,6 +1,5 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getDataConfiguration } from '@/lib/supabase/config';
@@ -9,6 +8,7 @@ import { parseSignUpInput, signUpCallbackUrl } from '@/lib/supabase/signup';
 
 export interface SignInState {
   error: string | null;
+  redirectTo?: string;
 }
 export interface SignUpState {
   error: string | null;
@@ -74,10 +74,10 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
   } catch {
     return { error: 'ติดต่อระบบเข้าสู่ระบบไม่ได้ กรุณาลองใหม่อีกครั้ง' };
   }
-  redirect(safeRedirectPath(formData.get('next')));
+  return { error: null, redirectTo: safeRedirectPath(formData.get('next')) };
 }
 
-export async function signOut(): Promise<void> {
+export async function signOut(): Promise<{ redirectTo: string }> {
   const config = getDataConfiguration();
   let failed = false;
   if (config.mode === 'supabase' && config.configured) {
@@ -89,6 +89,5 @@ export async function signOut(): Promise<void> {
       failed = true;
     }
   }
-  if (failed) redirect('/login?error=signout');
-  redirect('/login');
+  return { redirectTo: failed ? '/login?error=signout' : '/login' };
 }

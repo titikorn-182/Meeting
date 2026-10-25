@@ -2,12 +2,30 @@
 
 import { useActionState, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
-import { signIn } from '@/app/auth/actions';
+import { signIn, type SignInState } from '@/app/auth/actions';
+import { announceSessionChange } from '@/lib/session-events';
 import styles from './login.module.css';
 
 export function LoginForm({ next, initialError }: { next: string; initialError?: string }) {
-  const [state, action, pending] = useActionState(signIn, { error: null });
+  const router = useRouter();
+  const [state, action, pending] = useActionState(
+    async (previous: SignInState, data: FormData) => {
+      try {
+        const result = await signIn(previous, data);
+        if (result.redirectTo) {
+          announceSessionChange('changed');
+          router.replace(result.redirectTo);
+          router.refresh();
+        }
+        return result;
+      } catch {
+        return { error: 'ติดต่อระบบเข้าสู่ระบบไม่ได้ กรุณาลองใหม่อีกครั้ง' };
+      }
+    },
+    { error: null },
+  );
   const [visible, setVisible] = useState(false);
   const error = state.error || initialError;
   return (

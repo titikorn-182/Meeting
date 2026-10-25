@@ -1,4 +1,4 @@
-# Quality checks (phases 1–4)
+# Quality checks (phases 1–5)
 
 Run `npm ci`, then `npm run check` before submitting changes. The GitHub workflow runs these checks and a production build on pushes and pull requests. It needs no hosted database credentials. The workflow runs on GitHub only after the changes are pushed.
 
@@ -15,12 +15,25 @@ Run `npm ci`, then `npm run check` before submitting changes. The GitHub workflo
 
 ## Existing React warnings
 
-Three existing React warnings are temporarily allowed, with a warning ceiling of three. New feature files retain the normal recommended rules. Scoped warnings remain visible; do not raise the ceiling to accommodate new violations.
+Two existing React warnings are temporarily allowed, with a warning ceiling of two. New feature files retain the normal recommended rules. Scoped warnings remain visible; do not raise the ceiling to accommodate new violations.
 
 - `resolutions.tsx`, `settings.tsx`: effect-driven UI state synchronization remains in the listing and settings screens, outside the three detail/personnel screens refactored in phase 4.
-- `supabase-workspace-provider.tsx`: the request serial is intentionally advanced during effect cleanup to invalidate outstanding reads; the effect dependency analyzer warns about the mutable ref.
+- The connected provider's mutable-ref cleanup warning is resolved in phase 5: a session controller owns cancellation and a captured controller instance is stopped during effect cleanup.
 
 Fix these with focused UI regression coverage during the corresponding refactor, then remove the scoped overrides and reduce the ceiling. Security and type rules are not downgraded.
+
+## Auth and workspace lifetime (phase 5)
+
+- `lib/workspace-http.ts` handles JSON/error envelopes, same-origin cookies, no-store requests, and a 30-second timeout combined with caller cancellation.
+- `lib/workspace-session.ts` owns the connected loading/ready/error state and typed command execution. `providers/connected/use-workspace-session.ts` subscribes through `useSyncExternalStore` and manages focus, online, visibility and 60-second visible-tab refreshes. Its cleanup cancels requests and removes listeners/timers; Strict Mode restarts are supported.
+- A new read cancels the previous read. Starting a command cancels older reads; background refreshes and duplicate commands wait while a write is pending. Request generations also ignore late results from transports that cannot be canceled. Aborting the client wait does **not** roll back a command already executing on the server.
+- Idempotency keys survive uncertain write responses within the same session, scoped to account, organization, operation and payload. A confirmed write consumes its key. Logout, access loss, unmount or identity change discards old keys and pending completions. Detached form callbacks cannot issue commands in a later session, even after logging back in as the same person.
+- `providers/connected/workspace-actions.ts` maps screen commands to the existing API payloads and row versions. The provider composes the typed context, `workspace-gate.tsx` and `workspace-toasts.tsx`; toast timers are cleaned up. Identity changes remount screen children and clear previous notices/forms.
+- Password login and the shared `features/auth/sign-out-form.tsx` use existing server actions for credential/cookie operations, then navigate using the returned safe local path. Browser hints announce session changes to this tab and other same-origin tabs. The hints store only an event name and random nonce, never tokens, email, identity, data or permissions. They invalidate local state; only a fresh authenticated API response can reopen the workspace.
+- Logout hides data before the action completes. A missing completion hint has a bounded 30-second pause so later focus/poll refresh can recover. Storage-disabled browsers retain focus/visibility/poll recovery. Callback/verification links continue to exchange codes on the server and benefit from that same revalidation path. Supabase remains responsible for token refresh and cookies; the API still verifies `getUser()` and database membership/RLS on every request.
+- Network failures and temporary Auth service/rate-limit errors return a retryable connection error rather than incorrectly reporting an expired session. Missing/rejected sessions remain 401 and remove the cached workspace.
+- `npm test` covers cancellation, competing reads/writes, account/organization switches, stale form continuations, auth expiry, stale versions, failed reloads and idempotent retries, plus Auth error classification.
+- `npm run test:auth-session-ui` exercises real Next server actions, cookies and proxy refresh against a loopback Auth/RPC double. Start Next with `NEXT_PUBLIC_DATA_MODE=supabase`, `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54329`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_local_session_test`, `NEXT_PUBLIC_SUPABASE_ORGANIZATION_ID=11111111-1111-4111-8111-111111111111`, and port 3103. The test starts/stops the fake Auth server itself. `AUTH_SESSION_BASE_URL` may select another **local** app URL. The suite checks wrong passwords, safe redirects, token refresh, cross-tab login/logout, account-specific form reset, revoked/expired session handling and recoverable logout failure. It performs no hosted account changes, email sends or database writes; actual Supabase email delivery, verification and production behavior still require deployment checks.
 
 ## Feature screens (phase 4)
 
