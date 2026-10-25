@@ -1,0 +1,15 @@
+node_modules/
+.next*/
+.npm-cache/
+.test-artifacts/
+.impeccable/
+.agents/
+.codex/
+out/
+coverage/
+package-lock.json
+next-env.d.ts
+*.tsbuildinfo
+*.sql
+*.md
+.env*

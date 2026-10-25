@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { createBrowserClient } from "@supabase/ssr";
-import type { Database } from "./database.types";
-import { requireSupabaseConfiguration } from "./config";
+import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from './database.types';
+import { requireSupabaseConfiguration } from './config';
 
 export function createBrowserSupabaseClient() {
   const config = requireSupabaseConfiguration();

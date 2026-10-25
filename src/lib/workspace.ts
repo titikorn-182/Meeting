@@ -1,61 +1,38 @@
-import type { DemoState, Role, User } from './types';
-import { isAccessControl, type AccessControl } from './access-control';
-
-/** Connected read DTO. IDs in task/resolution screens identify execution cycles. */
-export interface WorkspaceSnapshot {
-  state: DemoState;
-  users: User[];
-  eligibleOwners: Array<Pick<User, 'id' | 'name' | 'unit'>>;
-  units: string[];
-  organization: { id: string; name: string };
-  permissions: string[];
-  roles: Role[];
-  access: AccessControl;
-  features?: { personnelManagement: boolean };
-}
+export { isNormalizedWorkspaceSnapshot as isWorkspaceSnapshot } from './workspace-schema';
+export type { WorkspaceSnapshot } from './workspace-schema';
+export type { WorkspaceCommand, WorkspaceOperation, CommandResult } from './workspace-commands';
 
 export const workspaceOperations = [
-  'acknowledge_task', 'transition_task', 'update_progress', 'add_evidence',
-  'create_change_request', 'decide_change', 'add_resolution', 'authorize_resolution',
-  'add_task', 'close_resolution', 'add_meeting', 'update_settings',
-  'mark_notification_read', 'mark_all_read',
-  'set_member_role', 'set_role_pages',
-  'add_personnel', 'set_pending_personnel_role',
+  'acknowledge_task',
+  'transition_task',
+  'update_progress',
+  'add_evidence',
+  'create_change_request',
+  'decide_change',
+  'add_resolution',
+  'authorize_resolution',
+  'add_task',
+  'close_resolution',
+  'add_meeting',
+  'update_settings',
+  'mark_notification_read',
+  'mark_all_read',
+  'set_member_role',
+  'set_role_pages',
+  'add_personnel',
+  'set_pending_personnel_role',
 ] as const;
-export type WorkspaceOperation = typeof workspaceOperations[number];
-export interface WorkspaceCommand {
-  organizationId: string;
-  operation: WorkspaceOperation;
-  payload: Record<string, unknown>;
-  idempotencyKey: string;
-}
-export interface CommandResult { id?: string; rowVersion?: number }
 
 /** These are operational counts; the historical KPI engine is a separate phase. */
 export function bangkokToday(now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   }).formatToParts(now);
-  const part = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;
-}
-
-export function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot {
-  if (!value || typeof value !== 'object') return false;
-  const row = value as Partial<WorkspaceSnapshot>;
-  const state = row.state;
-  return !!state && ['resolutions', 'tasks', 'meetings', 'changes', 'notifications', 'audit'].every(
-    key => Array.isArray(state[key as keyof DemoState]),
-  ) && typeof state.currentUserId === 'string' && !!state.settings
-    && Array.isArray(row.users) && row.users.some(u => u.id === state.currentUserId)
-    && Array.isArray(row.units) && row.units.every(u => typeof u === 'string')
-    && Array.isArray(row.eligibleOwners) && row.eligibleOwners.every(u => typeof u.id === 'string' && typeof u.name === 'string' && typeof u.unit === 'string')
-    && !!row.organization && typeof row.organization.id === 'string'
-    && typeof row.organization.name === 'string'
-    && Array.isArray(row.permissions) && row.permissions.every(p => typeof p === 'string')
-    && Array.isArray(row.roles) && isAccessControl(row.access)
-    && row.access.members[state.currentUserId]?.role === row.access.role
-    && (row.features === undefined || (!!row.features && typeof row.features.personnelManagement === 'boolean'));
 }
 
 export const workspaceErrors: Record<string, string> = {
@@ -88,13 +65,18 @@ export const workspaceErrors: Record<string, string> = {
   PAGE_ACCESS_DENIED: 'บทบาทนี้ยังไม่มีสิทธิ์เข้าหน้านี้ กรุณาติดต่อ Admin',
   INACTIVE_MEMBER: 'บัญชีนี้ถูกระงับหรือพ้นสมาชิกแล้ว กรุณาให้ผู้ดูแลตรวจสอบ',
   PERSONNEL_ALREADY_EXISTS: 'มีรายชื่ออีเมลนี้อยู่แล้ว กรุณาค้นหาและจัดการบทบาทจากรายการเดิม',
-  MEMBER_ALREADY_EXISTS: 'บัญชีนี้มีประวัติสมาชิกในพื้นที่ทำงานแล้ว กรุณาจัดการจากรายการเดิมหรือติดต่อผู้ดูแล',
+  MEMBER_ALREADY_EXISTS:
+    'บัญชีนี้มีประวัติสมาชิกในพื้นที่ทำงานแล้ว กรุณาจัดการจากรายการเดิมหรือติดต่อผู้ดูแล',
   INVITATION_CLAIMED: 'บุคลากรนี้เข้าใช้งานแล้ว กรุณาโหลดใหม่เพื่อจัดการบทบาทจากรายการสมาชิก',
-  EMAIL_VERIFICATION_REQUIRED: 'กรุณายืนยันอีเมลที่ผู้ดูแลระบุไว้ แล้วเข้าสู่ระบบอีกครั้งเพื่อรับสิทธิ์',
+  EMAIL_VERIFICATION_REQUIRED:
+    'กรุณายืนยันอีเมลที่ผู้ดูแลระบุไว้ แล้วเข้าสู่ระบบอีกครั้งเพื่อรับสิทธิ์',
 };
 
 export class WorkspaceError extends Error {
-  constructor(public readonly code: string, public readonly status = 500) {
+  constructor(
+    public readonly code: string,
+    public readonly status = 500,
+  ) {
     super(workspaceErrors[code] ?? 'ยังดำเนินการไม่ได้ กรุณาลองอีกครั้ง');
   }
 }

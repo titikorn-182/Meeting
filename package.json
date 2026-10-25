@@ -2,16 +2,22 @@
   "name": "polubu-smart-meeting",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=22.0.0" },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental false",
     "test": "tsx --test src/lib/*.test.ts src/lib/supabase/*.test.ts",
-    "test:db": "node supabase/tests/integration.mjs",
+    "test:db": "node --import tsx supabase/tests/integration.mjs && node --import tsx supabase/tests/role-access.mjs && node --import tsx supabase/tests/personnel.mjs && node supabase/tests/setup-secretary.mjs && node supabase/tests/setup-admin.mjs",
     "test:auth-ui": "node tests/auth-visual.mjs",
-    "test:workspace-ui": "node tests/workspace-smoke.mjs"
+    "test:workspace-ui": "node tests/workspace-smoke.mjs",
+    "lint": "eslint . --max-warnings 8",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:db"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-thai": "^5.2.0",
@@ -21,7 +27,8 @@
     "lucide-react": "^0.468.0",
     "next": "^16.0.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.11",
@@ -30,6 +37,10 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.10",
     "tailwindcss": "^4.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"

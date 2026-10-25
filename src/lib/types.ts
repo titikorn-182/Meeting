@@ -1,7 +1,8 @@
 /** Screen DTOs shared by the demo and Supabase adapters. Database authorization is authoritative. */
 import type { AccessRole } from './access-control';
 export type Role = 'secretary' | 'owner' | 'reviewer' | 'executive';
-export type TaskStatus = 'assigned' | 'in_progress' | 'submitted' | 'revision' | 'accepted' | 'cancelled';
+export type TaskStatus =
+  'assigned' | 'in_progress' | 'submitted' | 'revision' | 'accepted' | 'cancelled';
 export type ResolutionStatus = 'open' | 'pending_close' | 'closed' | 'acknowledged';
 export type Priority = 'high' | 'normal' | 'low';
 
@@ -162,8 +163,14 @@ export interface DemoState {
   currentUserId: string;
 }
 
-export interface Actor { role: Role; userId: string }
-export interface TransitionResult { allowed: boolean; reason?: string }
+export interface Actor {
+  role: Role;
+  userId: string;
+}
+export interface TransitionResult {
+  allowed: boolean;
+  reason?: string;
+}
 
 export interface DashboardMetrics {
   totalResolutions: number;

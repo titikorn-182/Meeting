@@ -3,22 +3,34 @@ import assert from 'node:assert/strict';
 
 // Isolated demo context: no real user's cookies/localStorage and no hosted credentials.
 const base = process.env.WORKSPACE_SMOKE_BASE_URL || 'http://127.0.0.1:3000';
-const browser = await chromium.launch({ channel: process.env.AUTH_BROWSER_CHANNEL || 'chrome', headless: true });
+const browser = await chromium.launch({
+  channel: process.env.AUTH_BROWSER_CHANNEL || 'chrome',
+  headless: true,
+});
 const labels = {
-  dashboard: 'ภาพรวม', meetings: 'การประชุม', resolutions: 'ทะเบียนมติ', tasks: 'งานของฉัน',
-  reviews: 'ตรวจผลและรับรอง', changes: 'คำขอเปลี่ยนแปลง', reports: 'รายงาน',
-  team: 'บุคลากรและสิทธิ์', settings: 'การตั้งค่า', notifications: 'แจ้งเตือน',
+  dashboard: 'ภาพรวม',
+  meetings: 'การประชุม',
+  resolutions: 'ทะเบียนมติ',
+  tasks: 'งานของฉัน',
+  reviews: 'ตรวจผลและรับรอง',
+  changes: 'คำขอเปลี่ยนแปลง',
+  reports: 'รายงาน',
+  team: 'บุคลากรและสิทธิ์',
+  settings: 'การตั้งค่า',
+  notifications: 'แจ้งเตือน',
 };
 const roleLabels = { admin: 'Admin', user: 'User', executive: 'Executive', staff: 'Staff' };
 
 try {
-  const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+  const page = await context.newPage();
   const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', (error) => errors.push(error.message));
   const picker = page.getByLabel('มุมมองบทบาททดลอง');
   const main = page.locator('#main-content');
-  const go = path => page.goto(`${base}${path}`, { waitUntil: 'networkidle' });
-  const rawDemo = () => page.evaluate(() => JSON.parse(localStorage.getItem('polubu-ui-demo-v1')).state);
+  const go = (path) => page.goto(`${base}${path}`, { waitUntil: 'networkidle' });
+  const rawDemo = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('polubu-ui-demo-v1')).state);
   async function persona(role) {
     await picker.selectOption(role);
     await expect(picker).toHaveValue(role);
@@ -29,22 +41,33 @@ try {
     await page.locator('#team-tab-permissions').click();
     await page.locator('#permission-role').selectOption(role);
     for (const [key, label] of Object.entries(labels)) {
-      await page.getByRole('checkbox', { name: `${roleLabels[role]} เข้าถึงหน้า${label}`, exact: true }).setChecked(pages.includes(key));
+      await page
+        .getByRole('checkbox', { name: `${roleLabels[role]} เข้าถึงหน้า${label}`, exact: true })
+        .setChecked(pages.includes(key));
     }
-    const save = page.getByRole('button', { name: `บันทึกสิทธิ์ ${roleLabels[role]}`, exact: true });
+    const save = page.getByRole('button', {
+      name: `บันทึกสิทธิ์ ${roleLabels[role]}`,
+      exact: true,
+    });
     if (await save.isEnabled()) {
       await save.click();
-      await expect(page.getByText(`บันทึกสิทธิ์ของ ${roleLabels[role]} แล้ว`, { exact: true })).toBeVisible();
+      await expect(
+        page.getByText(`บันทึกสิทธิ์ของ ${roleLabels[role]} แล้ว`, { exact: true }),
+      ).toBeVisible();
       await expect(save).toBeDisabled();
     }
   }
 
   await go('/team');
   await expect(picker).toHaveValue('admin');
-  assert.deepEqual(await picker.locator('option').evaluateAll(options => options.map(option => option.value)), ['admin', 'user', 'executive', 'staff']);
+  assert.deepEqual(
+    await picker.locator('option').evaluateAll((options) => options.map((option) => option.value)),
+    ['admin', 'user', 'executive', 'staff'],
+  );
   await expect(page.getByLabel('บทบาทการเข้าถึงของ ศิริพร ใจมั่น', { exact: true })).toBeDisabled();
   const baseline = await rawDemo();
-  const readAccess = () => page.evaluate(() => JSON.parse(localStorage.getItem('polubu-ui-demo-access-v1')));
+  const readAccess = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('polubu-ui-demo-access-v1')));
   const initialAccess = await readAccess();
 
   // Admin can prepare a person without creating a demo login or assigning work yet.
@@ -57,7 +80,10 @@ try {
     await page.locator('#personnel-email').fill(email);
     await page.locator('#personnel-unit').selectOption({ index: 1 });
     await page.locator('#personnel-role').selectOption(role);
-    await page.getByRole('form', { name: 'เพิ่มบุคลากรล่วงหน้า' }).getByRole('button', { name: 'เพิ่มบุคลากร', exact: true }).click();
+    await page
+      .getByRole('form', { name: 'เพิ่มบุคลากรล่วงหน้า' })
+      .getByRole('button', { name: 'เพิ่มบุคลากร', exact: true })
+      .click();
   }
   await fillPersonnel('Pending.Personnel@Example.Test');
   await expect(page.locator('#add-personnel-panel')).toHaveCount(0);
@@ -67,19 +93,38 @@ try {
   await expect(main.locator('#member-task-details')).toContainText('ยังไม่มีภาระงาน');
   await expect(page.getByLabel('บทบาทการเข้าถึงของ ศิริพร ใจมั่น', { exact: true })).toBeDisabled();
   const createdAccess = await readAccess();
-  const pending = Object.values(createdAccess.pendingPersonnel).find(person => person.email === pendingEmail);
+  const pending = Object.values(createdAccess.pendingPersonnel).find(
+    (person) => person.email === pendingEmail,
+  );
   assert.ok(pending, 'Personnel email must be normalized before saving');
   assert.equal(createdAccess.members[pending.id].role, 'admin');
-  assert.deepEqual(createdAccess.policies, initialAccess.policies, 'Adding personnel preserves page policies');
+  assert.deepEqual(
+    createdAccess.policies,
+    initialAccess.policies,
+    'Adding personnel preserves page policies',
+  );
   assert.deepEqual(createdAccess.members['u-siriporn'], initialAccess.members['u-siriporn']);
-  assert.equal(createdAccess.currentUserId, initialAccess.currentUserId, 'A pending person cannot become the signed-in persona');
+  assert.equal(
+    createdAccess.currentUserId,
+    initialAccess.currentUserId,
+    'A pending person cannot become the signed-in persona',
+  );
 
   await fillPersonnel('PENDING.PERSONNEL@EXAMPLE.TEST', 'staff');
-  await expect(page.getByRole('form', { name: 'เพิ่มบุคลากรล่วงหน้า' }).getByRole('alert')).toContainText('มีบุคลากรที่ใช้อีเมลนี้ในพื้นที่ทำงานแล้ว');
+  await expect(
+    page.getByRole('form', { name: 'เพิ่มบุคลากรล่วงหน้า' }).getByRole('alert'),
+  ).toContainText('มีบุคลากรที่ใช้อีเมลนี้ในพื้นที่ทำงานแล้ว');
   await expect(page.locator('#personnel-email')).toBeFocused();
   await expect(page.locator('#personnel-first-name')).toHaveValue('บุคลากร');
-  assert.equal(Object.keys((await readAccess()).pendingPersonnel).length, 1, 'Duplicate email must not create a second record');
-  await page.getByRole('form', { name: 'เพิ่มบุคลากรล่วงหน้า' }).getByRole('button', { name: 'ยกเลิก', exact: true }).click();
+  assert.equal(
+    Object.keys((await readAccess()).pendingPersonnel).length,
+    1,
+    'Duplicate email must not create a second record',
+  );
+  await page
+    .getByRole('form', { name: 'เพิ่มบุคลากรล่วงหน้า' })
+    .getByRole('button', { name: 'ยกเลิก', exact: true })
+    .click();
 
   const pendingRole = page.getByLabel(`บทบาทการเข้าถึงของ ${pendingName}`, { exact: true });
   await pendingRole.selectOption('staff');
@@ -88,17 +133,28 @@ try {
   await expect(roleDialog).toHaveCount(0);
   await expect(pendingRole).toHaveValue('staff');
   const editedAccess = await readAccess();
-  assert.deepEqual(editedAccess.pendingPersonnel[pending.id], pending, 'Role edits preserve pending personnel identity');
+  assert.deepEqual(
+    editedAccess.pendingPersonnel[pending.id],
+    pending,
+    'Role edits preserve pending personnel identity',
+  );
   assert.equal(editedAccess.members[pending.id].version, 2);
 
   // A second Admin tab invalidates a role confirmation opened with the old version.
   await pendingRole.selectOption('user');
   const secondTab = await page.context().newPage();
-  secondTab.on('pageerror', error => errors.push(error.message));
+  secondTab.on('pageerror', (error) => errors.push(error.message));
   await secondTab.goto(`${base}/team`, { waitUntil: 'networkidle' });
-  await secondTab.getByLabel(`บทบาทการเข้าถึงของ ${pendingName}`, { exact: true }).selectOption('executive');
-  await secondTab.getByRole('dialog', { name: 'ยืนยันการเปลี่ยนบทบาท', exact: true }).getByRole('button', { name: 'ยืนยันเปลี่ยนบทบาท', exact: true }).click();
-  await expect(roleDialog.getByRole('button', { name: 'ยืนยันเปลี่ยนบทบาท', exact: true })).toBeDisabled();
+  await secondTab
+    .getByLabel(`บทบาทการเข้าถึงของ ${pendingName}`, { exact: true })
+    .selectOption('executive');
+  await secondTab
+    .getByRole('dialog', { name: 'ยืนยันการเปลี่ยนบทบาท', exact: true })
+    .getByRole('button', { name: 'ยืนยันเปลี่ยนบทบาท', exact: true })
+    .click();
+  await expect(
+    roleDialog.getByRole('button', { name: 'ยืนยันเปลี่ยนบทบาท', exact: true }),
+  ).toBeDisabled();
   await expect(roleDialog).toContainText('บทบาทของสมาชิกนี้มีการเปลี่ยนแปลงแล้ว');
   await roleDialog.getByRole('button', { name: 'ยกเลิก', exact: true }).click();
   await secondTab.close();
@@ -106,13 +162,19 @@ try {
   await page.reload({ waitUntil: 'networkidle' });
   await expect(pendingRow).toContainText('รอเข้าใช้งาน');
   await expect(pendingRole).toHaveValue('executive');
-  assert.deepEqual((await rawDemo()).tasks, baseline.tasks, 'Adding pending personnel preserves raw workloads');
+  assert.deepEqual(
+    (await rawDemo()).tasks,
+    baseline.tasks,
+    'Adding pending personnel preserves raw workloads',
+  );
 
   // A role without configured pages has no workspace links and must not loop at '/'.
   for (const role of ['user', 'executive']) {
     await persona(role);
     await go('/');
-    await expect(main.getByRole('heading', { name: 'ยังไม่ได้กำหนดหน้าใช้งานสำหรับบทบาทนี้', exact: true })).toBeVisible();
+    await expect(
+      main.getByRole('heading', { name: 'ยังไม่ได้กำหนดหน้าใช้งานสำหรับบทบาทนี้', exact: true }),
+    ).toBeVisible();
     await expect(page.locator('.sidebar .sidebar-nav a')).toHaveCount(0);
     await expect(page.locator('a[href^="/"]')).toHaveCount(0);
     await expect(picker).toHaveValue(role);
@@ -124,7 +186,10 @@ try {
   await persona('user');
   await go('/resolutions/new');
   await expect(main.getByRole('heading', { name: 'บันทึกมติใหม่', exact: true })).toBeVisible();
-  assert.ok(await page.locator('#resolution-meeting option').count() > 1, 'Resolution drafting must retain minimal source meeting choices without meeting-page access');
+  assert.ok(
+    (await page.locator('#resolution-meeting option').count()) > 1,
+    'Resolution drafting must retain minimal source meeting choices without meeting-page access',
+  );
   await page.locator('#resolution-meeting').selectOption('m01');
   await expect(main.locator('a[href^="/meetings"]')).toHaveCount(0);
   await configurePages('user', ['changes']);
@@ -132,66 +197,108 @@ try {
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('#team-tab-permissions').click();
   await page.locator('#permission-role').selectOption('staff');
-  await expect(page.getByRole('checkbox', { name: 'Staff เข้าถึงหน้าทะเบียนมติ ไม่สามารถเปิดสิทธิ์นี้ได้', exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole('checkbox', {
+      name: 'Staff เข้าถึงหน้าทะเบียนมติ ไม่สามารถเปิดสิทธิ์นี้ได้',
+      exact: true,
+    }),
+  ).toBeDisabled();
 
   await persona('executive');
   await go('/resolutions/r03');
-  await expect(main.getByRole('heading', { name: 'จัดทำแผนปรับปรุงจากผลประเมินคุณภาพ', exact: true })).toBeVisible();
-  await expect(main.getByRole('button', { name: 'ตรวจเกณฑ์และรับรองปิด', exact: true })).toBeDisabled();
+  await expect(
+    main.getByRole('heading', { name: 'จัดทำแผนปรับปรุงจากผลประเมินคุณภาพ', exact: true }),
+  ).toBeVisible();
+  await expect(
+    main.getByRole('button', { name: 'ตรวจเกณฑ์และรับรองปิด', exact: true }),
+  ).toBeDisabled();
   await expect(main).toContainText('ยังตรวจเงื่อนไขปิดมติได้ไม่ครบตามสิทธิที่ได้รับ');
   await main.getByRole('button', { name: 'หลักฐาน', exact: true }).click();
-  await expect(main.getByRole('heading', { name: 'ยังไม่มีสิทธิอ่านหลักฐานของงาน', exact: true })).toBeVisible();
+  await expect(
+    main.getByRole('heading', { name: 'ยังไม่มีสิทธิอ่านหลักฐานของงาน', exact: true }),
+  ).toBeVisible();
   await expect(main.locator('a[href^="/tasks/"]')).toHaveCount(0);
   await go('/reports');
-  await expect(main.getByRole('heading', { name: 'รายงานและผลดำเนินงาน', exact: true })).toBeVisible();
+  await expect(
+    main.getByRole('heading', { name: 'รายงานและผลดำเนินงาน', exact: true }),
+  ).toBeVisible();
   await expect(main).not.toContainText('ไม่พบข้อมูลรายงาน');
 
   await persona('user');
   await go('/');
   await page.waitForURL(/\/changes$/);
   await page.getByRole('button', { name: 'สร้างคำขอ', exact: true }).click();
-  assert.ok(await page.locator('#change-task option').count() > 1, 'Changes-only access must include task choices without opening task details');
+  assert.ok(
+    (await page.locator('#change-task option').count()) > 1,
+    'Changes-only access must include task choices without opening task details',
+  );
   await page.locator('#change-task').selectOption('t02');
   await expect(main.locator('a[href^="/tasks/"]')).toHaveCount(0);
   await expect(page.locator('.sidebar .sidebar-nav a')).toHaveCount(1);
   await go('/meetings');
-  await expect(main.getByRole('heading', { name: 'คุณไม่มีสิทธิเข้าถึงหน้านี้', exact: true })).toBeVisible();
+  await expect(
+    main.getByRole('heading', { name: 'คุณไม่มีสิทธิเข้าถึงหน้านี้', exact: true }),
+  ).toBeVisible();
 
   // Staff query parameters, search and direct links cannot expand the owned-task scope.
   await persona('staff');
   await go('/');
   await page.waitForURL(/\/tasks$/);
   await go('/tasks?scope=all');
-  const ownTasks = baseline.tasks.filter(task => task.ownerId === 'u-thanaphorn');
-  const foreignTasks = baseline.tasks.filter(task => task.ownerId !== 'u-thanaphorn');
-  const taskHrefs = await main.locator('a[href^="/tasks/"]').evaluateAll(links => [...new Set(links.map(link => link.getAttribute('href')))].sort());
-  assert.deepEqual(taskHrefs, ownTasks.map(task => `/tasks/${task.id}`).sort(), 'Staff all-scope list must remain owned tasks only');
+  const ownTasks = baseline.tasks.filter((task) => task.ownerId === 'u-thanaphorn');
+  const foreignTasks = baseline.tasks.filter((task) => task.ownerId !== 'u-thanaphorn');
+  const taskHrefs = await main
+    .locator('a[href^="/tasks/"]')
+    .evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute('href')))].sort());
+  assert.deepEqual(
+    taskHrefs,
+    ownTasks.map((task) => `/tasks/${task.id}`).sort(),
+    'Staff all-scope list must remain owned tasks only',
+  );
   for (const foreign of foreignTasks) await expect(main).not.toContainText(foreign.title);
   await expect(page.locator('.sidebar a[href="/settings"]')).toHaveCount(0);
   await expect(page.locator('a[href="/reports"]')).toHaveCount(0);
   await page.getByRole('button', { name: 'ค้นหามติ งาน หรือการประชุม', exact: true }).click();
   const search = page.getByRole('dialog', { name: 'ค้นหาในพื้นที่ทำงาน', exact: true });
   await search.getByLabel('คำค้นหา', { exact: true }).fill(foreignTasks[0].title);
-  await expect(search.getByRole('heading', { name: 'ยังไม่พบรายการนี้', exact: true })).toBeVisible();
+  await expect(
+    search.getByRole('heading', { name: 'ยังไม่พบรายการนี้', exact: true }),
+  ).toBeVisible();
   await search.getByRole('button', { name: 'ปิดหน้าต่าง', exact: true }).click();
   await go(`/tasks/${foreignTasks[0].id}`);
-  await expect(main.getByRole('heading', { name: 'ไม่พบงานที่ต้องการ', exact: true })).toBeVisible();
-  for (const path of ['/resolutions/r01', '/meetings', '/reviews', '/reports', '/team', '/settings']) {
+  await expect(
+    main.getByRole('heading', { name: 'ไม่พบงานที่ต้องการ', exact: true }),
+  ).toBeVisible();
+  for (const path of [
+    '/resolutions/r01',
+    '/meetings',
+    '/reviews',
+    '/reports',
+    '/team',
+    '/settings',
+  ]) {
     await go(path);
-    await expect(main.getByRole('heading', { name: 'คุณไม่มีสิทธิเข้าถึงหน้านี้', exact: true })).toBeVisible();
+    await expect(
+      main.getByRole('heading', { name: 'คุณไม่มีสิทธิเข้าถึงหน้านี้', exact: true }),
+    ).toBeVisible();
   }
   await go('/changes');
-  const ownIds = new Set(ownTasks.map(task => task.id));
+  const ownIds = new Set(ownTasks.map((task) => task.id));
   for (const change of baseline.changes) {
     const row = main.getByRole('row').filter({ hasText: change.code });
-    if (change.requestedById === 'u-thanaphorn' && ownIds.has(change.taskId)) await expect(row).toHaveCount(1);
+    if (change.requestedById === 'u-thanaphorn' && ownIds.has(change.taskId))
+      await expect(row).toHaveCount(1);
     else await expect(row).toHaveCount(0);
   }
   await page.getByRole('button', { name: 'สร้างคำขอ', exact: true }).click();
   await page.locator('#change-task').selectOption('t02');
   await expect(page.locator('#change-type option[value="owner"]')).toHaveCount(0);
   const afterScopeSwitches = await rawDemo();
-  assert.deepEqual(afterScopeSwitches.tasks.map(task => task.id), baseline.tasks.map(task => task.id), 'Staff projection must not overwrite raw demo records');
+  assert.deepEqual(
+    afterScopeSwitches.tasks.map((task) => task.id),
+    baseline.tasks.map((task) => task.id),
+    'Staff projection must not overwrite raw demo records',
+  );
 
   // Preserve async creation and assigned-review workflow under canonical roles.
   await persona('admin');
@@ -218,20 +325,50 @@ try {
   await expect(main).not.toContainText(pendingEmail);
   await expect(main).not.toContainText(pendingName);
   await page.locator('#team-tab-permissions').click();
-  await expect(main.getByText('ดูสิทธิ์ได้ ผู้ดูแลระบบเป็นผู้แก้ไข', { exact: true })).toBeVisible();
+  await expect(
+    main.getByText('ดูสิทธิ์ได้ ผู้ดูแลระบบเป็นผู้แก้ไข', { exact: true }),
+  ).toBeVisible();
   await expect(main.locator('#permission-role')).toBeVisible();
   await expect(main.getByRole('checkbox')).toHaveCount(0);
   await expect(main.getByRole('button', { name: /^บันทึกสิทธิ์ / })).toHaveCount(0);
   await go('/reviews');
   await page.getByLabel('เฉพาะงานที่ฉันเป็นผู้ตรวจ').check();
   const criteria = page.locator('fieldset input[type=checkbox]');
-  assert.ok(await criteria.count() > 0, 'Executive demo persona must provide a pending assigned review');
+  assert.ok(
+    (await criteria.count()) > 0,
+    'Executive demo persona must provide a pending assigned review',
+  );
   for (const check of await criteria.all()) await check.check();
   await page.locator('#review-note').fill('ตรวจครบตามเกณฑ์จาก browser smoke test');
   const firstTitle = await page.locator('.stack .panel h2').first().textContent();
   await page.getByRole('button', { name: 'รับรองผลงาน', exact: true }).click();
   await expect(page.locator('.toast-region')).toContainText('รับรองผลงานแล้ว');
-  assert.deepEqual(errors, [], 'Role policies, scoped DTOs and async workflows must not raise browser runtime errors');
-  console.log(JSON.stringify({ canonicalRoles: true, pendingPersonnelCreated: true, duplicateEmailDenied: true, pendingRolePersisted: true, stalePendingRoleDenied: true, pendingHiddenFromNonAdmin: true, zeroPageDenied: true, policyPersistence: true, staffOwnedScope: true, forbiddenRoutesDenied: true, summariesSafe: true, readOnlyExecutive: true, meetingCreatedWithAgendas: true, reloadPersisted: true, reviewAccepted: firstTitle, runtimeErrors: errors.length }));
+  assert.deepEqual(
+    errors,
+    [],
+    'Role policies, scoped DTOs and async workflows must not raise browser runtime errors',
+  );
+  console.log(
+    JSON.stringify({
+      canonicalRoles: true,
+      pendingPersonnelCreated: true,
+      duplicateEmailDenied: true,
+      pendingRolePersisted: true,
+      stalePendingRoleDenied: true,
+      pendingHiddenFromNonAdmin: true,
+      zeroPageDenied: true,
+      policyPersistence: true,
+      staffOwnedScope: true,
+      forbiddenRoutesDenied: true,
+      summariesSafe: true,
+      readOnlyExecutive: true,
+      meetingCreatedWithAgendas: true,
+      reloadPersisted: true,
+      reviewAccepted: firstTitle,
+      runtimeErrors: errors.length,
+    }),
+  );
   await page.close();
-} finally { await browser.close(); }
+} finally {
+  await browser.close();
+}

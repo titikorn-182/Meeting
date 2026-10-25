@@ -1,10 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_ROLE_PAGES, WORKSPACE_PAGES, canAccessPage, isAccessControl, landingPath, pageForPath, permissionsForAccessRole, type AccessControl } from './access-control';
+import {
+  DEFAULT_ROLE_PAGES,
+  WORKSPACE_PAGES,
+  canAccessPage,
+  isAccessControl,
+  landingPath,
+  pageForPath,
+  permissionsForAccessRole,
+  type AccessControl,
+} from './access-control';
 
 const access = (role: AccessControl['role']): AccessControl => ({
-  role, pages: [...DEFAULT_ROLE_PAGES[role]], policies: structuredClone(DEFAULT_ROLE_PAGES),
-  policyVersion: 1, members: { self: { role, version: 0 } },
+  role,
+  pages: [...DEFAULT_ROLE_PAGES[role]],
+  policies: structuredClone(DEFAULT_ROLE_PAGES),
+  policyVersion: 1,
+  members: { self: { role, version: 0 } },
 });
 test('new User and Executive accounts require administrator page selection', () => {
   for (const role of ['user', 'executive'] as const) {
@@ -12,14 +24,24 @@ test('new User and Executive accounts require administrator page selection', () 
     assert.equal(canAccessPage(access(role), 'team'), false);
     assert.equal(isAccessControl(access(role)), true);
   }
-  assert.deepEqual(access('admin').pages, WORKSPACE_PAGES.map(page => page.key));
+  assert.deepEqual(
+    access('admin').pages,
+    WORKSPACE_PAGES.map((page) => page.key),
+  );
 });
 test('Staff lands on personal tasks; role alone cannot enable other pages', () => {
   const staff = access('staff');
   assert.equal(landingPath(staff), '/tasks');
   assert.equal(canAccessPage(staff, 'tasks'), true);
   assert.equal(canAccessPage({ ...staff, pages: ['team'] }, 'team'), false);
-  assert.equal(isAccessControl({ ...staff, pages: ['team'], policies: { ...staff.policies, staff: ['team'] } }), false);
+  assert.equal(
+    isAccessControl({
+      ...staff,
+      pages: ['team'],
+      policies: { ...staff.policies, staff: ['team'] },
+    }),
+    false,
+  );
 });
 test('route matching handles nested details without prefix-confusion', () => {
   assert.equal(pageForPath('/tasks/abc?tab=evidence'), 'tasks');
@@ -33,7 +55,10 @@ test('management payloads cannot promote authority through malformed snapshot fi
   assert.equal(isAccessControl(admin), true);
   assert.equal(isAccessControl({ ...admin, role: 'superadmin' }), false);
   assert.equal(isAccessControl({ ...admin, policyVersion: 0 }), false);
-  assert.equal(isAccessControl({ ...admin, members: { self: { role: 'admin', version: -1 } } }), false);
+  assert.equal(
+    isAccessControl({ ...admin, members: { self: { role: 'admin', version: -1 } } }),
+    false,
+  );
   assert.equal(isAccessControl({ ...admin, policies: { ...admin.policies, admin: [] } }), false);
 });
 test('UI action capabilities require both canonical role and enabled action page', () => {

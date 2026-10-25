@@ -1,50 +1,685 @@
-"use client";
+'use client';
 
-import { AccessLink as Link } from "@/components/app-shell";
-import { useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCheck, ClipboardList, Clock3, FileText, History, Info, Plus, ShieldCheck, X } from "lucide-react";
-import clsx from "clsx";
-import { useDemo } from "@/components/demo-provider";
-import { Avatar, Badge, Button, EmptyState, Field, PageHeader, Panel, ProgressBar } from "@/components/ui";
-import { canCloseResolution, formatThaiDate, getResolutionProgress } from "@/lib/workflow";
-import type { Priority } from "@/lib/types";
-import { canAccessPage } from "@/lib/access-control";
+import { AccessLink as Link } from '@/components/app-shell';
+import { useEffect, useState, type FormEvent } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  Check,
+  CheckCheck,
+  ClipboardList,
+  Clock3,
+  FileText,
+  History,
+  Info,
+  Plus,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import clsx from 'clsx';
+import { useDemo } from '@/components/demo-provider';
+import {
+  Avatar,
+  Badge,
+  Button,
+  EmptyState,
+  Field,
+  PageHeader,
+  Panel,
+  ProgressBar,
+} from '@/components/ui';
+import { canCloseResolution, formatThaiDate, getResolutionProgress } from '@/lib/workflow';
+import type { Priority } from '@/lib/types';
+import { canAccessPage } from '@/lib/access-control';
 
 export function ResolutionDetail({ id }: { id: string }) {
-  const { state, access, ready, addTask, closeResolution, authorizeResolution, mode, permissions, users, busy, units } = useDemo();
-  const [tab, setTab] = useState("overview");
+  const {
+    state,
+    access,
+    ready,
+    addTask,
+    closeResolution,
+    authorizeResolution,
+    mode,
+    permissions,
+    users,
+    busy,
+    units,
+  } = useDemo();
+  const [tab, setTab] = useState('overview');
   const [addingTask, setAddingTask] = useState(false);
   const [closing, setClosing] = useState(false);
   const [checked, setChecked] = useState<number[]>([]);
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("addTask") === "1") { setTab("tasks"); setAddingTask(true); } }, []);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('addTask') === '1') {
+      setTab('tasks');
+      setAddingTask(true);
+    }
+  }, []);
   const resolution = state.resolutions.find((item) => item.id === id);
   if (!ready && !resolution) return <div className="skeleton h-96" />;
-  if (!resolution) return <EmptyState icon={ClipboardList} title="ไม่พบมตินี้" description="รายการอาจไม่มีอยู่หรืออยู่นอกสิทธิของคุณ ลองเปิดจากทะเบียนมติอีกครั้ง"><Link href="/resolutions" className="button button-primary">ไปทะเบียนมติ</Link></EmptyState>;
+  if (!resolution)
+    return (
+      <EmptyState
+        icon={ClipboardList}
+        title="ไม่พบมตินี้"
+        description="รายการอาจไม่มีอยู่หรืออยู่นอกสิทธิของคุณ ลองเปิดจากทะเบียนมติอีกครั้ง"
+      >
+        <Link href="/resolutions" className="button button-primary">
+          ไปทะเบียนมติ
+        </Link>
+      </EmptyState>
+    );
   const tasks = state.tasks.filter((task) => task.resolutionId === id);
   const meeting = state.meetings.find((item) => item.id === resolution.meetingId);
-  const taskDetailsAvailable = canAccessPage(access, "tasks") || canAccessPage(access, "reviews");
-  const taskSummaryAvailable = taskDetailsAvailable || canAccessPage(access, "dashboard") || canAccessPage(access, "reports") || canAccessPage(access, "changes");
-  const evidence = tasks.flatMap((task) => (task.evidence ?? []).map((file) => ({ ...file, task })));
+  const taskDetailsAvailable = canAccessPage(access, 'tasks') || canAccessPage(access, 'reviews');
+  const taskSummaryAvailable =
+    taskDetailsAvailable ||
+    canAccessPage(access, 'dashboard') ||
+    canAccessPage(access, 'reports') ||
+    canAccessPage(access, 'changes');
+  const evidence = tasks.flatMap((task) =>
+    (task.evidence ?? []).map((file) => ({ ...file, task })),
+  );
   const closureCriteria = resolution.closureCriteria ?? [];
-  const closureContextAvailable = taskDetailsAvailable && canAccessPage(access, "changes") && !resolution.partialContext && Array.isArray(resolution.closureCriteria) && tasks.every((task) => typeof task.required === "boolean");
-  const events = state.audit.filter((event) => event.targetId === id || tasks.some((task) => task.id === event.targetId));
-  const tasksReady = closureContextAvailable && (mode === "supabase"
-    ? tasks.length > 0 && tasks.every((task) => task.status === "accepted")
-    : canCloseResolution(id, state.tasks)) && !state.changes.some((change) => change.status === "pending" && tasks.some((task) => task.id === change.taskId));
-  const activeUsers = users.filter((user) => user.membershipStatus !== "pending");
-  const canManage = permissions.includes("task.assign");
-  const canClose = permissions.includes("resolution.close") && !["recurring", "acknowledgment"].includes(resolution.type) && resolution.status !== "closed";
+  const closureContextAvailable =
+    taskDetailsAvailable &&
+    canAccessPage(access, 'changes') &&
+    !resolution.partialContext &&
+    Array.isArray(resolution.closureCriteria) &&
+    tasks.every((task) => typeof task.required === 'boolean');
+  const events = state.audit.filter(
+    (event) => event.targetId === id || tasks.some((task) => task.id === event.targetId),
+  );
+  const tasksReady =
+    closureContextAvailable &&
+    (mode === 'supabase'
+      ? tasks.length > 0 && tasks.every((task) => task.status === 'accepted')
+      : canCloseResolution(id, state.tasks)) &&
+    !state.changes.some(
+      (change) => change.status === 'pending' && tasks.some((task) => task.id === change.taskId),
+    );
+  const activeUsers = users.filter((user) => user.membershipStatus !== 'pending');
+  const canManage = permissions.includes('task.assign');
+  const canClose =
+    permissions.includes('resolution.close') &&
+    !['recurring', 'acknowledgment'].includes(resolution.type) &&
+    resolution.status !== 'closed';
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     const data = new FormData(event.currentTarget);
-    const taskId = await addTask({ resolutionId: id, title: String(data.get("title")).trim(), description: String(data.get("description")).trim(), ownerId: String(data.get("ownerId")), reviewerId: String(data.get("reviewerId")), unit: String(data.get("unit")), priority: String(data.get("priority")) as Priority, originalDueDate: String(data.get("dueDate")), dueDate: String(data.get("dueDate")), required: data.get("required") === "on", deliverable: String(data.get("deliverable")).trim(), criteria: String(data.get("criteria")).split("\n").map((value) => value.trim()).filter(Boolean) });
-    if (taskId) { setAddingTask(false); setTab("tasks"); }
+    const taskId = await addTask({
+      resolutionId: id,
+      title: String(data.get('title')).trim(),
+      description: String(data.get('description')).trim(),
+      ownerId: String(data.get('ownerId')),
+      reviewerId: String(data.get('reviewerId')),
+      unit: String(data.get('unit')),
+      priority: String(data.get('priority')) as Priority,
+      originalDueDate: String(data.get('dueDate')),
+      dueDate: String(data.get('dueDate')),
+      required: data.get('required') === 'on',
+      deliverable: String(data.get('deliverable')).trim(),
+      criteria: String(data.get('criteria'))
+        .split('\n')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    });
+    if (taskId) {
+      setAddingTask(false);
+      setTab('tasks');
+    }
   }
-  return <div className="page-stack"><Link href="/resolutions" className="back-link"><ArrowLeft size={15} />ทะเบียนมติ</Link><PageHeader title={resolution.title} description={`${resolution.code} · วาระ ${resolution.agenda} · ${meeting?.title ?? "การประชุม"} ครั้งที่ ${meeting?.number ?? "—"}`}><Badge status={resolution.status} />{canManage && resolution.status !== "closed" && resolution.type !== "acknowledgment" && <Button disabled={busy} onClick={() => { setTab("tasks"); setAddingTask((value) => !value); }}><Plus size={16} />มอบหมายงาน</Button>}</PageHeader><div className="detail-grid"><div className="stack"><section className="panel"><div className="detail-tabs tabs">{[{ id: "overview", name: "รายละเอียดมติ" }, { id: "tasks", name: taskSummaryAvailable ? `งานที่เกี่ยวข้อง (${tasks.length})` : "งานที่เกี่ยวข้อง" }, { id: "evidence", name: taskDetailsAvailable ? `หลักฐาน (${evidence.length})` : "หลักฐาน" }, { id: "history", name: "ประวัติ" }].map((item) => <button key={item.id} className={clsx("tab", tab === item.id && "active")} onClick={() => setTab(item.id)} aria-pressed={tab === item.id}>{item.name}</button>)}</div><div className="panel-body">{tab === "overview" && <div className="stack"><div><h2>ถ้อยคำมติ</h2><p className="resolution-content">{resolution.content}</p></div><div className="detail-divider" /><div><h2>เกณฑ์การรับรองปิดมติ</h2><p className="muted text-small mt-2">ตรวจรับงานย่อยแล้ว ยังต้องยืนยันเงื่อนไขระดับมติต่อไปนี้</p><ul className="criteria-list">{closureCriteria.map((criterion, index) => <li key={index}><span className="criterion-number">{index + 1}</span>{criterion}</li>)}</ul>{resolution.type === "acknowledgment" && <div className="inline-alert"><Info size={17} /><span>มติรับทราบอย่างเดียว เก็บในทะเบียนโดยไม่มีงานติดตาม</span></div>}{resolution.type === "recurring" && <div className="inline-alert"><CalendarDays size={17} /><span>มตินี้ดำเนินการต่อเนื่อง การตรวจรับงานรอบหนึ่งไม่ปิดมติแม่</span></div>}</div><Link href={meeting ? `/meetings/${meeting.id}` : "/meetings"} className="source-link"><FileText size={20} /><span><strong>การประชุมต้นทาง</strong><small>{meeting?.title} · ครั้งที่ {meeting?.number}</small></span><ArrowRight size={17} /></Link></div>}
-    {tab === "tasks" && <div className="stack">{addingTask && canManage && <form onSubmit={submitTask} className="inline-form"><div className="cluster justify-between"><h2>มอบหมายงานตามมติ</h2><button type="button" className="icon-button" aria-label="ปิดแบบมอบหมายงาน" onClick={() => setAddingTask(false)}><X size={17} /></button></div><p className="muted text-small mt-2 mb-5">กำหนดสิ่งที่ต้องส่งและวิธีตรวจรับให้ตรงกันก่อนเริ่มงาน</p><div className="form-grid"><div className="full-width"><Field label="ชื่องาน" htmlFor="task-title" required><input id="task-title" className="input" name="title" required maxLength={200} placeholder="เช่น จัดทำร่างแผนพัฒนาบุคลากร" /></Field></div><Field label="ผู้รับผิดชอบหลัก" htmlFor="task-owner" required><select id="task-owner" className="select" name="ownerId" required defaultValue=""><option value="" disabled>เลือกผู้รับผิดชอบ</option>{activeUsers.filter((user) => (user.roles ?? [user.role]).includes("owner")).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></Field><Field label="ผู้ตรวจผล" htmlFor="task-reviewer" required><select id="task-reviewer" className="select" name="reviewerId" defaultValue={activeUsers.find((user) => (user.roles ?? [user.role]).some((role) => ["reviewer", "executive"].includes(role)))?.id}>{activeUsers.filter((user) => (user.roles ?? [user.role]).some((role) => ["reviewer", "executive"].includes(role))).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></Field><Field label="หน่วยงาน" htmlFor="task-unit"><select id="task-unit" className="select" name="unit" required defaultValue={resolution.unit}>{units.map((unit) => <option key={unit}>{unit}</option>)}</select></Field><Field label="กำหนดส่ง" htmlFor="task-due" required><input id="task-due" type="date" className="input" name="dueDate" required defaultValue={resolution.dueDate} /></Field><Field label="ความสำคัญ" htmlFor="task-priority"><select id="task-priority" className="select" name="priority"><option value="normal">ปกติ</option><option value="high">สำคัญมาก</option><option value="low">ทั่วไป</option></select></Field><div className="field justify-center"><label className="checkbox-label"><input type="checkbox" name="required" defaultChecked />งานจำเป็นต่อการปิดมติ</label></div><div className="full-width"><Field label="สิ่งที่ต้องดำเนินการ" htmlFor="task-description" required><textarea id="task-description" name="description" className="textarea" required rows={3} /></Field></div><div className="full-width"><Field label="ผลส่งมอบ" htmlFor="task-deliverable" required><input id="task-deliverable" name="deliverable" className="input" required placeholder="ชื่อเอกสารหรือผลลัพธ์ที่ต้องส่ง" /></Field></div><div className="full-width"><Field label="เกณฑ์ตรวจรับ" htmlFor="task-criteria" required hint="แยกแต่ละเกณฑ์ด้วยการขึ้นบรรทัดใหม่"><textarea id="task-criteria" name="criteria" className="textarea" required rows={3} /></Field></div></div><div className="form-actions"><Button disabled={busy} variant="ghost" onClick={() => setAddingTask(false)}>ยกเลิก</Button><Button disabled={busy} type="submit"><Plus size={15} />มอบหมายงาน</Button></div></form>}{tasks.length ? <div className="resolution-task-list">{tasks.map((task) => <Link href={`/tasks/${task.id}`} key={task.id} className="resolution-task"><span className={clsx("task-state-icon", task.status === "accepted" && "complete")}>{task.status === "accepted" ? <Check size={18} /> : <ClipboardList size={18} />}</span><div className="min-w-0 flex-1"><div className="cluster"><span className="text-tiny muted">{task.code}</span>{task.required && <span className="text-tiny muted">งานจำเป็น</span>}</div><strong>{task.title}</strong><div className="cluster mt-2"><Avatar userId={task.ownerId} size="sm" /><span className="muted text-tiny">{users.find((user) => user.id === task.ownerId)?.name.split(" ")[0]}</span><span className="muted text-tiny">ส่ง {formatThaiDate(task.dueDate)}</span></div></div><div className="task-list-end"><Badge status={task.status} /><ProgressBar value={task.progress} /></div><ArrowRight size={16} /></Link>)}</div> : !addingTask && <EmptyState icon={ClipboardList} title={!taskSummaryAvailable ? "ยังไม่มีสิทธิอ่านรายการงาน" : resolution.type === "acknowledgment" ? "มติรับทราบ ไม่มีงานติดตาม" : "ยังไม่มีงานตามมตินี้"} description={taskSummaryAvailable ? "เมื่อกำหนดงาน เจ้าของ และเกณฑ์ตรวจแล้ว จะติดตามความก้าวหน้าได้จากที่นี่" : "โปรดให้ Admin เปิดหน้ารายการงานหรือหน้าภาพรวม เพื่อดูงานที่เกี่ยวข้อง"}>{canManage && resolution.type !== "acknowledgment" && <Button disabled={busy} onClick={() => setAddingTask(true)}><Plus size={16} />เพิ่มงานแรก</Button>}</EmptyState>}</div>}
-    {tab === "evidence" && (evidence.length ? <div className="stack-sm"><div className="inline-alert"><Info size={17} /><span>{mode === "demo" ? "หลักฐานในชุดเริ่มต้นเป็นตัวอย่างชื่อเอกสาร เปิดงานเพื่อดูรายละเอียด" : "หลักฐานที่ได้รับสิทธิเข้าถึง เปิดงานเพื่อดูชุดผลงานและลิงก์อ้างอิง"}</span></div>{evidence.map((file) => <Link className="evidence-row" key={`${file.task.id}-${file.id}`} href={`/tasks/${file.task.id}`}><FileText size={22} /><span><strong>{file.name}</strong><small>{file.task.code} · {file.size} · {formatThaiDate(file.uploadedAt)}</small></span><ArrowRight size={16} /></Link>)}</div> : <EmptyState icon={FileText} title={taskDetailsAvailable ? "ยังไม่มีหลักฐาน" : "ยังไม่มีสิทธิอ่านหลักฐานของงาน"} description={taskDetailsAvailable ? "เมื่อเจ้าของงานเพิ่มหลักฐาน เอกสารจะรวบรวมในมตินี้โดยอัตโนมัติ" : "โปรดให้ Admin เปิดหน้ารายการงานหรือตรวจผล เพื่ออ่านหลักฐานที่เกี่ยวข้อง"} />)}
-    {tab === "history" && (events.length ? <div className="event-timeline">{events.map((event) => <div className="timeline-item" key={event.id}><span className="timeline-dot" /><div><h3>{event.action}</h3><p>{event.detail}</p><small>{users.find((user) => user.id === event.actorId)?.name} · {formatThaiDate(event.createdAt)}</small></div></div>)}</div> : <EmptyState icon={History} title="ยังไม่มีความเคลื่อนไหวเพิ่มเติม" description="การมอบหมาย ส่งผลงาน และตัดสินใจจะบันทึกไว้ในประวัตินี้" />)}</div></section>
-    {canClose && <Panel title="รับรองปิดมติ" description="ตรวจงานจำเป็นและเงื่อนไขระดับมติให้ครบก่อนปิด"><div className="stack-sm">{!tasksReady && <div className="inline-alert warning"><Clock3 size={17} /><span>{!closureContextAvailable ? "ยังตรวจเงื่อนไขปิดมติได้ไม่ครบตามสิทธิที่ได้รับ โปรดให้ Admin เปิดหน้ารายการงานหรือตรวจผล และคำขอเปลี่ยนแปลงก่อน" : mode === "supabase" ? "ทุกงานต้องผ่านตรวจรับและไม่มีคำขอค้างก่อนปิดมติในรุ่นนี้ การจัดการงานประกอบที่ยังค้างแยกต่างหากยังไม่เปิดใช้" : "ยังมีงานจำเป็นที่ไม่ผ่านการตรวจรับ หรือยังไม่มีงานตามมติ"}</span></div>}{tasksReady && !closing && <p className="text-small muted">งานจำเป็นผ่านการตรวจรับแล้ว พร้อมตรวจเงื่อนไขระดับมติ</p>}{closing && tasksReady && <div className="stack-sm">{closureCriteria.map((criterion, index) => <label key={index} className="checkbox-label"><input type="checkbox" checked={checked.includes(index)} onChange={(event) => setChecked((items) => event.target.checked ? [...items, index] : items.filter((item) => item !== index))} />{criterion}</label>)}</div>}<div className="cluster mt-3">{closing ? <><Button disabled={busy || !tasksReady || (checked.length !== closureCriteria.length)} onClick={async () => { if (await closeResolution(id, checked.length === closureCriteria.length)) setClosing(false); }}><ShieldCheck size={16} />ยืนยันรับรองปิดมติ</Button><Button disabled={busy} variant="ghost" onClick={() => setClosing(false)}>ยกเลิก</Button></> : <Button disabled={busy || (!tasksReady)} onClick={() => setClosing(true)}><CheckCheck size={16} />ตรวจเกณฑ์และรับรองปิด</Button>}</div></div></Panel>}</div>
-    <aside className="stack">{mode === "supabase" && resolution.type !== "acknowledgment" && <Panel title="การอนุญาตเริ่มดำเนินงาน"><div className="stack-sm"><Badge tone={resolution.executionAuthorized ? "success" : "warning"}>{resolution.executionAuthorized ? "อนุญาตเริ่มแล้ว" : "รอผู้มีอำนาจอนุญาต"}</Badge><p className="text-small muted">การบันทึกมติแยกจากการอนุญาตให้เริ่มดำเนินงาน</p>{!resolution.executionAuthorized && permissions.includes("execution.authorize") && <Button disabled={busy} onClick={async () => { await authorizeResolution(id); }}><ShieldCheck size={16} />อนุญาตเริ่มดำเนินงาน</Button>}</div></Panel>}<Panel title="ภาพรวมของมติ"><div className="resolution-progress-number"><strong>{taskSummaryAvailable ? getResolutionProgress(id, state.tasks) : "—"}{taskSummaryAvailable && <small>%</small>}</strong><span>ความก้าวหน้าที่รายงาน</span></div>{taskSummaryAvailable && <ProgressBar value={getResolutionProgress(id, state.tasks)} />}<div className="detail-divider my-5" /><dl className="detail-list"><div><dt>งานทั้งหมด</dt><dd>{taskSummaryAvailable ? `${tasks.length} งาน` : "ยังไม่อยู่ในสิทธิที่ได้รับ"}</dd></div><div><dt>ตรวจรับแล้ว</dt><dd>{taskSummaryAvailable ? `${tasks.filter((task) => task.status === "accepted").length} งาน` : "—"}</dd></div><div><dt>ประเภทมติ</dt><dd><Badge status={resolution.type} /></dd></div><div><dt>กำหนดติดตาม</dt><dd>{formatThaiDate(resolution.dueDate)}</dd></div><div><dt>บันทึกเมื่อ</dt><dd>{formatThaiDate(resolution.createdAt)}</dd></div></dl><p className="field-hint mt-5">ความก้าวหน้า 100% ไม่เท่ากับผ่านตรวจหรือปิดมติ</p></Panel><Panel title="ผู้ประสานหลัก"><div className="cluster flex-nowrap"><Avatar userId={resolution.coordinatorId} /><div><strong className="text-small">{users.find((user) => user.id === resolution.coordinatorId)?.name}</strong><p className="text-tiny muted">{resolution.unit}</p></div></div></Panel></aside></div></div>;
+  return (
+    <div className="page-stack">
+      <Link href="/resolutions" className="back-link">
+        <ArrowLeft size={15} />
+        ทะเบียนมติ
+      </Link>
+      <PageHeader
+        title={resolution.title}
+        description={`${resolution.code} · วาระ ${resolution.agenda} · ${meeting?.title ?? 'การประชุม'} ครั้งที่ ${meeting?.number ?? '—'}`}
+      >
+        <Badge status={resolution.status} />
+        {canManage && resolution.status !== 'closed' && resolution.type !== 'acknowledgment' && (
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setTab('tasks');
+              setAddingTask((value) => !value);
+            }}
+          >
+            <Plus size={16} />
+            มอบหมายงาน
+          </Button>
+        )}
+      </PageHeader>
+      <div className="detail-grid">
+        <div className="stack">
+          <section className="panel">
+            <div className="detail-tabs tabs">
+              {[
+                { id: 'overview', name: 'รายละเอียดมติ' },
+                {
+                  id: 'tasks',
+                  name: taskSummaryAvailable
+                    ? `งานที่เกี่ยวข้อง (${tasks.length})`
+                    : 'งานที่เกี่ยวข้อง',
+                },
+                {
+                  id: 'evidence',
+                  name: taskDetailsAvailable ? `หลักฐาน (${evidence.length})` : 'หลักฐาน',
+                },
+                { id: 'history', name: 'ประวัติ' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  className={clsx('tab', tab === item.id && 'active')}
+                  onClick={() => setTab(item.id)}
+                  aria-pressed={tab === item.id}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+            <div className="panel-body">
+              {tab === 'overview' && (
+                <div className="stack">
+                  <div>
+                    <h2>ถ้อยคำมติ</h2>
+                    <p className="resolution-content">{resolution.content}</p>
+                  </div>
+                  <div className="detail-divider" />
+                  <div>
+                    <h2>เกณฑ์การรับรองปิดมติ</h2>
+                    <p className="muted text-small mt-2">
+                      ตรวจรับงานย่อยแล้ว ยังต้องยืนยันเงื่อนไขระดับมติต่อไปนี้
+                    </p>
+                    <ul className="criteria-list">
+                      {closureCriteria.map((criterion, index) => (
+                        <li key={index}>
+                          <span className="criterion-number">{index + 1}</span>
+                          {criterion}
+                        </li>
+                      ))}
+                    </ul>
+                    {resolution.type === 'acknowledgment' && (
+                      <div className="inline-alert">
+                        <Info size={17} />
+                        <span>มติรับทราบอย่างเดียว เก็บในทะเบียนโดยไม่มีงานติดตาม</span>
+                      </div>
+                    )}
+                    {resolution.type === 'recurring' && (
+                      <div className="inline-alert">
+                        <CalendarDays size={17} />
+                        <span>มตินี้ดำเนินการต่อเนื่อง การตรวจรับงานรอบหนึ่งไม่ปิดมติแม่</span>
+                      </div>
+                    )}
+                  </div>
+                  <Link
+                    href={meeting ? `/meetings/${meeting.id}` : '/meetings'}
+                    className="source-link"
+                  >
+                    <FileText size={20} />
+                    <span>
+                      <strong>การประชุมต้นทาง</strong>
+                      <small>
+                        {meeting?.title} · ครั้งที่ {meeting?.number}
+                      </small>
+                    </span>
+                    <ArrowRight size={17} />
+                  </Link>
+                </div>
+              )}
+              {tab === 'tasks' && (
+                <div className="stack">
+                  {addingTask && canManage && (
+                    <form onSubmit={submitTask} className="inline-form">
+                      <div className="cluster justify-between">
+                        <h2>มอบหมายงานตามมติ</h2>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label="ปิดแบบมอบหมายงาน"
+                          onClick={() => setAddingTask(false)}
+                        >
+                          <X size={17} />
+                        </button>
+                      </div>
+                      <p className="muted text-small mt-2 mb-5">
+                        กำหนดสิ่งที่ต้องส่งและวิธีตรวจรับให้ตรงกันก่อนเริ่มงาน
+                      </p>
+                      <div className="form-grid">
+                        <div className="full-width">
+                          <Field label="ชื่องาน" htmlFor="task-title" required>
+                            <input
+                              id="task-title"
+                              className="input"
+                              name="title"
+                              required
+                              maxLength={200}
+                              placeholder="เช่น จัดทำร่างแผนพัฒนาบุคลากร"
+                            />
+                          </Field>
+                        </div>
+                        <Field label="ผู้รับผิดชอบหลัก" htmlFor="task-owner" required>
+                          <select
+                            id="task-owner"
+                            className="select"
+                            name="ownerId"
+                            required
+                            defaultValue=""
+                          >
+                            <option value="" disabled>
+                              เลือกผู้รับผิดชอบ
+                            </option>
+                            {activeUsers
+                              .filter((user) => (user.roles ?? [user.role]).includes('owner'))
+                              .map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.name}
+                                </option>
+                              ))}
+                          </select>
+                        </Field>
+                        <Field label="ผู้ตรวจผล" htmlFor="task-reviewer" required>
+                          <select
+                            id="task-reviewer"
+                            className="select"
+                            name="reviewerId"
+                            defaultValue={
+                              activeUsers.find((user) =>
+                                (user.roles ?? [user.role]).some((role) =>
+                                  ['reviewer', 'executive'].includes(role),
+                                ),
+                              )?.id
+                            }
+                          >
+                            {activeUsers
+                              .filter((user) =>
+                                (user.roles ?? [user.role]).some((role) =>
+                                  ['reviewer', 'executive'].includes(role),
+                                ),
+                              )
+                              .map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.name}
+                                </option>
+                              ))}
+                          </select>
+                        </Field>
+                        <Field label="หน่วยงาน" htmlFor="task-unit">
+                          <select
+                            id="task-unit"
+                            className="select"
+                            name="unit"
+                            required
+                            defaultValue={resolution.unit}
+                          >
+                            {units.map((unit) => (
+                              <option key={unit}>{unit}</option>
+                            ))}
+                          </select>
+                        </Field>
+                        <Field label="กำหนดส่ง" htmlFor="task-due" required>
+                          <input
+                            id="task-due"
+                            type="date"
+                            className="input"
+                            name="dueDate"
+                            required
+                            defaultValue={resolution.dueDate}
+                          />
+                        </Field>
+                        <Field label="ความสำคัญ" htmlFor="task-priority">
+                          <select id="task-priority" className="select" name="priority">
+                            <option value="normal">ปกติ</option>
+                            <option value="high">สำคัญมาก</option>
+                            <option value="low">ทั่วไป</option>
+                          </select>
+                        </Field>
+                        <div className="field justify-center">
+                          <label className="checkbox-label">
+                            <input type="checkbox" name="required" defaultChecked />
+                            งานจำเป็นต่อการปิดมติ
+                          </label>
+                        </div>
+                        <div className="full-width">
+                          <Field label="สิ่งที่ต้องดำเนินการ" htmlFor="task-description" required>
+                            <textarea
+                              id="task-description"
+                              name="description"
+                              className="textarea"
+                              required
+                              rows={3}
+                            />
+                          </Field>
+                        </div>
+                        <div className="full-width">
+                          <Field label="ผลส่งมอบ" htmlFor="task-deliverable" required>
+                            <input
+                              id="task-deliverable"
+                              name="deliverable"
+                              className="input"
+                              required
+                              placeholder="ชื่อเอกสารหรือผลลัพธ์ที่ต้องส่ง"
+                            />
+                          </Field>
+                        </div>
+                        <div className="full-width">
+                          <Field
+                            label="เกณฑ์ตรวจรับ"
+                            htmlFor="task-criteria"
+                            required
+                            hint="แยกแต่ละเกณฑ์ด้วยการขึ้นบรรทัดใหม่"
+                          >
+                            <textarea
+                              id="task-criteria"
+                              name="criteria"
+                              className="textarea"
+                              required
+                              rows={3}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+                      <div className="form-actions">
+                        <Button
+                          disabled={busy}
+                          variant="ghost"
+                          onClick={() => setAddingTask(false)}
+                        >
+                          ยกเลิก
+                        </Button>
+                        <Button disabled={busy} type="submit">
+                          <Plus size={15} />
+                          มอบหมายงาน
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                  {tasks.length ? (
+                    <div className="resolution-task-list">
+                      {tasks.map((task) => (
+                        <Link href={`/tasks/${task.id}`} key={task.id} className="resolution-task">
+                          <span
+                            className={clsx(
+                              'task-state-icon',
+                              task.status === 'accepted' && 'complete',
+                            )}
+                          >
+                            {task.status === 'accepted' ? (
+                              <Check size={18} />
+                            ) : (
+                              <ClipboardList size={18} />
+                            )}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="cluster">
+                              <span className="text-tiny muted">{task.code}</span>
+                              {task.required && <span className="text-tiny muted">งานจำเป็น</span>}
+                            </div>
+                            <strong>{task.title}</strong>
+                            <div className="cluster mt-2">
+                              <Avatar userId={task.ownerId} size="sm" />
+                              <span className="muted text-tiny">
+                                {users.find((user) => user.id === task.ownerId)?.name.split(' ')[0]}
+                              </span>
+                              <span className="muted text-tiny">
+                                ส่ง {formatThaiDate(task.dueDate)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="task-list-end">
+                            <Badge status={task.status} />
+                            <ProgressBar value={task.progress} />
+                          </div>
+                          <ArrowRight size={16} />
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    !addingTask && (
+                      <EmptyState
+                        icon={ClipboardList}
+                        title={
+                          !taskSummaryAvailable
+                            ? 'ยังไม่มีสิทธิอ่านรายการงาน'
+                            : resolution.type === 'acknowledgment'
+                              ? 'มติรับทราบ ไม่มีงานติดตาม'
+                              : 'ยังไม่มีงานตามมตินี้'
+                        }
+                        description={
+                          taskSummaryAvailable
+                            ? 'เมื่อกำหนดงาน เจ้าของ และเกณฑ์ตรวจแล้ว จะติดตามความก้าวหน้าได้จากที่นี่'
+                            : 'โปรดให้ Admin เปิดหน้ารายการงานหรือหน้าภาพรวม เพื่อดูงานที่เกี่ยวข้อง'
+                        }
+                      >
+                        {canManage && resolution.type !== 'acknowledgment' && (
+                          <Button disabled={busy} onClick={() => setAddingTask(true)}>
+                            <Plus size={16} />
+                            เพิ่มงานแรก
+                          </Button>
+                        )}
+                      </EmptyState>
+                    )
+                  )}
+                </div>
+              )}
+              {tab === 'evidence' &&
+                (evidence.length ? (
+                  <div className="stack-sm">
+                    <div className="inline-alert">
+                      <Info size={17} />
+                      <span>
+                        {mode === 'demo'
+                          ? 'หลักฐานในชุดเริ่มต้นเป็นตัวอย่างชื่อเอกสาร เปิดงานเพื่อดูรายละเอียด'
+                          : 'หลักฐานที่ได้รับสิทธิเข้าถึง เปิดงานเพื่อดูชุดผลงานและลิงก์อ้างอิง'}
+                      </span>
+                    </div>
+                    {evidence.map((file) => (
+                      <Link
+                        className="evidence-row"
+                        key={`${file.task.id}-${file.id}`}
+                        href={`/tasks/${file.task.id}`}
+                      >
+                        <FileText size={22} />
+                        <span>
+                          <strong>{file.name}</strong>
+                          <small>
+                            {file.task.code} · {file.size} · {formatThaiDate(file.uploadedAt)}
+                          </small>
+                        </span>
+                        <ArrowRight size={16} />
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={FileText}
+                    title={
+                      taskDetailsAvailable ? 'ยังไม่มีหลักฐาน' : 'ยังไม่มีสิทธิอ่านหลักฐานของงาน'
+                    }
+                    description={
+                      taskDetailsAvailable
+                        ? 'เมื่อเจ้าของงานเพิ่มหลักฐาน เอกสารจะรวบรวมในมตินี้โดยอัตโนมัติ'
+                        : 'โปรดให้ Admin เปิดหน้ารายการงานหรือตรวจผล เพื่ออ่านหลักฐานที่เกี่ยวข้อง'
+                    }
+                  />
+                ))}
+              {tab === 'history' &&
+                (events.length ? (
+                  <div className="event-timeline">
+                    {events.map((event) => (
+                      <div className="timeline-item" key={event.id}>
+                        <span className="timeline-dot" />
+                        <div>
+                          <h3>{event.action}</h3>
+                          <p>{event.detail}</p>
+                          <small>
+                            {users.find((user) => user.id === event.actorId)?.name} ·{' '}
+                            {formatThaiDate(event.createdAt)}
+                          </small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={History}
+                    title="ยังไม่มีความเคลื่อนไหวเพิ่มเติม"
+                    description="การมอบหมาย ส่งผลงาน และตัดสินใจจะบันทึกไว้ในประวัตินี้"
+                  />
+                ))}
+            </div>
+          </section>
+          {canClose && (
+            <Panel title="รับรองปิดมติ" description="ตรวจงานจำเป็นและเงื่อนไขระดับมติให้ครบก่อนปิด">
+              <div className="stack-sm">
+                {!tasksReady && (
+                  <div className="inline-alert warning">
+                    <Clock3 size={17} />
+                    <span>
+                      {!closureContextAvailable
+                        ? 'ยังตรวจเงื่อนไขปิดมติได้ไม่ครบตามสิทธิที่ได้รับ โปรดให้ Admin เปิดหน้ารายการงานหรือตรวจผล และคำขอเปลี่ยนแปลงก่อน'
+                        : mode === 'supabase'
+                          ? 'ทุกงานต้องผ่านตรวจรับและไม่มีคำขอค้างก่อนปิดมติในรุ่นนี้ การจัดการงานประกอบที่ยังค้างแยกต่างหากยังไม่เปิดใช้'
+                          : 'ยังมีงานจำเป็นที่ไม่ผ่านการตรวจรับ หรือยังไม่มีงานตามมติ'}
+                    </span>
+                  </div>
+                )}
+                {tasksReady && !closing && (
+                  <p className="text-small muted">
+                    งานจำเป็นผ่านการตรวจรับแล้ว พร้อมตรวจเงื่อนไขระดับมติ
+                  </p>
+                )}
+                {closing && tasksReady && (
+                  <div className="stack-sm">
+                    {closureCriteria.map((criterion, index) => (
+                      <label key={index} className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={checked.includes(index)}
+                          onChange={(event) =>
+                            setChecked((items) =>
+                              event.target.checked
+                                ? [...items, index]
+                                : items.filter((item) => item !== index),
+                            )
+                          }
+                        />
+                        {criterion}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <div className="cluster mt-3">
+                  {closing ? (
+                    <>
+                      <Button
+                        disabled={busy || !tasksReady || checked.length !== closureCriteria.length}
+                        onClick={async () => {
+                          if (await closeResolution(id, checked.length === closureCriteria.length))
+                            setClosing(false);
+                        }}
+                      >
+                        <ShieldCheck size={16} />
+                        ยืนยันรับรองปิดมติ
+                      </Button>
+                      <Button disabled={busy} variant="ghost" onClick={() => setClosing(false)}>
+                        ยกเลิก
+                      </Button>
+                    </>
+                  ) : (
+                    <Button disabled={busy || !tasksReady} onClick={() => setClosing(true)}>
+                      <CheckCheck size={16} />
+                      ตรวจเกณฑ์และรับรองปิด
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Panel>
+          )}
+        </div>
+        <aside className="stack">
+          {mode === 'supabase' && resolution.type !== 'acknowledgment' && (
+            <Panel title="การอนุญาตเริ่มดำเนินงาน">
+              <div className="stack-sm">
+                <Badge tone={resolution.executionAuthorized ? 'success' : 'warning'}>
+                  {resolution.executionAuthorized ? 'อนุญาตเริ่มแล้ว' : 'รอผู้มีอำนาจอนุญาต'}
+                </Badge>
+                <p className="text-small muted">การบันทึกมติแยกจากการอนุญาตให้เริ่มดำเนินงาน</p>
+                {!resolution.executionAuthorized && permissions.includes('execution.authorize') && (
+                  <Button
+                    disabled={busy}
+                    onClick={async () => {
+                      await authorizeResolution(id);
+                    }}
+                  >
+                    <ShieldCheck size={16} />
+                    อนุญาตเริ่มดำเนินงาน
+                  </Button>
+                )}
+              </div>
+            </Panel>
+          )}
+          <Panel title="ภาพรวมของมติ">
+            <div className="resolution-progress-number">
+              <strong>
+                {taskSummaryAvailable ? getResolutionProgress(id, state.tasks) : '—'}
+                {taskSummaryAvailable && <small>%</small>}
+              </strong>
+              <span>ความก้าวหน้าที่รายงาน</span>
+            </div>
+            {taskSummaryAvailable && <ProgressBar value={getResolutionProgress(id, state.tasks)} />}
+            <div className="detail-divider my-5" />
+            <dl className="detail-list">
+              <div>
+                <dt>งานทั้งหมด</dt>
+                <dd>
+                  {taskSummaryAvailable ? `${tasks.length} งาน` : 'ยังไม่อยู่ในสิทธิที่ได้รับ'}
+                </dd>
+              </div>
+              <div>
+                <dt>ตรวจรับแล้ว</dt>
+                <dd>
+                  {taskSummaryAvailable
+                    ? `${tasks.filter((task) => task.status === 'accepted').length} งาน`
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>ประเภทมติ</dt>
+                <dd>
+                  <Badge status={resolution.type} />
+                </dd>
+              </div>
+              <div>
+                <dt>กำหนดติดตาม</dt>
+                <dd>{formatThaiDate(resolution.dueDate)}</dd>
+              </div>
+              <div>
+                <dt>บันทึกเมื่อ</dt>
+                <dd>{formatThaiDate(resolution.createdAt)}</dd>
+              </div>
+            </dl>
+            <p className="field-hint mt-5">ความก้าวหน้า 100% ไม่เท่ากับผ่านตรวจหรือปิดมติ</p>
+          </Panel>
+          <Panel title="ผู้ประสานหลัก">
+            <div className="cluster flex-nowrap">
+              <Avatar userId={resolution.coordinatorId} />
+              <div>
+                <strong className="text-small">
+                  {users.find((user) => user.id === resolution.coordinatorId)?.name}
+                </strong>
+                <p className="text-tiny muted">{resolution.unit}</p>
+              </div>
+            </div>
+          </Panel>
+        </aside>
+      </div>
+    </div>
+  );
 }

@@ -1,17 +1,20 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import type { Database } from "./database.types";
-import { requireSupabaseConfiguration } from "./config";
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import type { Database } from './database.types';
+import { requireSupabaseConfiguration } from './config';
 
 export async function createServerSupabaseClient() {
   const config = requireSupabaseConfiguration();
   const cookieStore = await cookies();
   return createServerClient<Database>(config.url, config.publishableKey, {
     cookies: {
-      getAll() { return cookieStore.getAll(); },
+      getAll() {
+        return cookieStore.getAll();
+      },
       setAll(cookiesToSet) {
         try {
-          for (const { name, value, options } of cookiesToSet) cookieStore.set(name, value, options);
+          for (const { name, value, options } of cookiesToSet)
+            cookieStore.set(name, value, options);
         } catch {
           // Server Components cannot set cookies. Proxy refreshes them before rendering.
         }
