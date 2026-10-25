@@ -1,4 +1,4 @@
-# Quality checks (phases 1–3)
+# Quality checks (phases 1–4)
 
 Run `npm ci`, then `npm run check` before submitting changes. The GitHub workflow runs these checks and a production build on pushes and pull requests. It needs no hosted database credentials. The workflow runs on GitHub only after the changes are pushed.
 
@@ -15,12 +15,59 @@ Run `npm ci`, then `npm run check` before submitting changes. The GitHub workflo
 
 ## Existing React warnings
 
-Five existing React warnings are temporarily allowed, with a warning ceiling of five. New files retain the normal recommended rules. Scoped warnings remain visible; do not raise the ceiling to accommodate new violations.
+Three existing React warnings are temporarily allowed, with a warning ceiling of three. New feature files retain the normal recommended rules. Scoped warnings remain visible; do not raise the ceiling to accommodate new violations.
 
-- `resolution-detail.tsx`, `resolutions.tsx`, `settings.tsx`, `team.tsx`: effect-driven UI state synchronization (phase 4).
+- `resolutions.tsx`, `settings.tsx`: effect-driven UI state synchronization remains in the listing and settings screens, outside the three detail/personnel screens refactored in phase 4.
 - `supabase-workspace-provider.tsx`: the request serial is intentionally advanced during effect cleanup to invalidate outstanding reads; the effect dependency analyzer warns about the mutable ref.
 
 Fix these with focused UI regression coverage during the corresponding refactor, then remove the scoped overrides and reduce the ceiling. Security and type rules are not downgraded.
+
+## Feature screens (phase 4)
+
+The existing routes and screen export names remain stable. The three screen entry files now delegate to feature modules:
+
+```text
+src/features/
+  personnel/
+    screen.tsx                 # Tabs and composition
+    use-team.ts                # Filters, selection, role-change confirmation
+    use-add-personnel.ts       # Form validation and submission
+    use-role-permissions.ts    # Draft policy, version reconciliation, save
+    members-panel.tsx          # Personnel table and filters
+    member-workload.tsx        # Selected person's workload
+    add-personnel.tsx
+    role-permissions.tsx
+    role-change-dialog.tsx
+    personnel-model.ts
+    team.module.css
+  tasks/
+    detail-screen.tsx          # Lookup, empty state, keyed detail view
+    use-task-detail.ts         # Progress, evidence, work transitions
+    task-progress.tsx
+    task-evidence.tsx
+    task-actions.tsx
+    task-assignment.tsx
+    task-requirements.tsx
+    task-history.tsx
+    submit-task-dialog.tsx
+    task-status.ts
+  resolutions/
+    detail-screen.tsx          # Lookup, tabs, keyed detail view
+    use-resolution-detail.ts   # Assignment, authorization, closure
+    assign-task-form.tsx
+    resolution-overview.tsx
+    resolution-evidence.tsx
+    resolution-history.tsx
+    resolution-closure.tsx
+    resolution-summary.tsx
+```
+
+- Controllers use the shared workspace adapter. UI components receive a typed subset of the controller model using `Pick`; they do not implement database commands or import demo fixtures. `ReturnType` keeps each model in sync with its controller without weakening it to `any`.
+- Detail views are keyed by the entity ID, so task/resolution form state belongs to that entity. The resolution route awaits Next.js `searchParams` and supplies `initialAddTask`, removing effect-driven URL initialization and preserving direct assignment links.
+- Role-policy drafts reconcile against the authoritative policy version before rendering. External updates discard stale edits with an explanation; the current role stays selected. The existing version check and server authorization remain authoritative.
+- The Team stylesheet moved unchanged with its feature. Markup, labels, authorization rules, storage keys, API contracts and SQL remain unchanged.
+- `npm run test:detail-ui` uses `WORKSPACE_SMOKE_BASE_URL` (default port 3101) with a demo-mode server. It checks stale policy drafts across tabs, progress, rejected unsafe link protocols, evidence, draft reset during navigation, submission, assignment links and closure criteria. The existing workspace suite covers member creation/roles, restricted page access, own-data scope and review workflows.
+- The connected UI suite additionally renders all three features with intercepted API data and checks server-supplied permissions, disabled file upload and unavailable closure. This is connected-adapter coverage, not a test against a live Supabase project.
 
 ## API contracts
 

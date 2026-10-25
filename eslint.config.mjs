@@ -7,15 +7,9 @@ export default defineConfig([
   ...nextVitals,
   ...nextTypescript,
   prettier,
-  // Existing UI synchronization is tracked for phases 3–4 in QUALITY.md.
-  // Keep diagnostics visible without refactoring UI behavior in this contract change.
+  // Remaining screen synchronization is tracked in QUALITY.md.
   {
-    files: [
-      'src/components/screens/resolutions.tsx',
-      'src/components/screens/resolution-detail.tsx',
-      'src/components/screens/settings.tsx',
-      'src/components/screens/team.tsx',
-    ],
+    files: ['src/components/screens/resolutions.tsx', 'src/components/screens/settings.tsx'],
     rules: { 'react-hooks/set-state-in-effect': 'warn' },
   },
   globalIgnores([

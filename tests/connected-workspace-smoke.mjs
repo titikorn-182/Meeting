@@ -67,6 +67,43 @@ try {
   await expect.poll(() => writes.length).toBe(1);
   assert.equal(writes[0].operation, 'update_settings');
   assert.deepEqual(writes[0].payload.patch.reminderDays, [7, 3, 1]);
+  // Extracted screens still use the connected adapter and its server-supplied permissions.
+  await page.goto(`${base}/team`, { waitUntil: 'networkidle' });
+  await expect(page.locator('#add-personnel-button')).toBeVisible();
+  await page.locator('#team-tab-permissions').click();
+  await expect(page.locator('#permission-role')).toBeVisible();
+  await page.goto(`${base}/tasks/t02`, { waitUntil: 'networkidle' });
+  await expect(
+    page.getByRole('heading', {
+      name: payload.state.tasks.find((t) => t.id === 't02').title,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'รายงานความก้าวหน้า', exact: true })).toHaveCount(
+    0,
+  );
+  response = {
+    status: 200,
+    body: {
+      ...payload,
+      state: { ...payload.state, currentUserId: 'u-thanaphorn' },
+      permissions: ['task.work', 'task.assign', 'resolution.close'],
+      access: {
+        ...payload.access,
+        members: { ...payload.access.members, 'u-thanaphorn': { role: 'admin', version: 0 } },
+      },
+    },
+  };
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(page.getByRole('button', { name: 'รายงานความก้าวหน้า', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'เพิ่มไฟล์', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'เพิ่มลิงก์', exact: true })).toBeEnabled();
+  await page.goto(`${base}/resolutions/r01?addTask=1`, { waitUntil: 'networkidle' });
+  await expect(page.locator('#task-title')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'ตรวจเกณฑ์และรับรองปิด', exact: true }),
+  ).toBeDisabled();
+  assert.equal(writes.length, 1, 'Read-only checks must not submit a connected workflow command');
   for (const problem of [
     { status: 503, body: { error: { code: 'CONNECTION_FAILED' } } },
     { status: 401, body: { error: { code: 'UNAUTHENTICATED' } } },
@@ -90,6 +127,7 @@ try {
       connectedReads: true,
       connectedWrites: true,
       connectedSettings: true,
+      connectedFeatureScreens: true,
       failureNeverFallsBack: true,
       demoStorageUntouched: true,
       demoChunkNotLoaded: true,

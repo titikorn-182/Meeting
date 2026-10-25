@@ -1,21 +1,14 @@
 'use client';
 
 import { AccessLink as Link } from '@/components/app-shell';
-import { useMemo, useState } from 'react';
-import { ArrowRight, CheckCheck, ClipboardList, FileDown, Search } from 'lucide-react';
-import { useWorkspace } from '@/components/workspace-context';
 import { Avatar, Badge, EmptyState, PageHeader, Panel, ProgressBar } from '@/components/ui';
+import { useWorkspace } from '@/components/workspace-context';
 import { daysUntil, formatThaiDate, isOverdue } from '@/lib/workflow';
-import type { TaskStatus } from '@/lib/types';
+import { ArrowRight, CheckCheck, ClipboardList, FileDown, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
-export const taskStatusLabels: Record<TaskStatus, string> = {
-  assigned: 'มอบหมายแล้ว',
-  in_progress: 'กำลังดำเนินการ',
-  submitted: 'ส่งตรวจแล้ว',
-  revision: 'ให้แก้ไข',
-  accepted: 'ตรวจรับแล้ว',
-  cancelled: 'ยุติงาน',
-};
+import { taskStatusLabels } from '@/features/tasks/task-status';
+export { taskStatusLabels } from '@/features/tasks/task-status';
 
 export function TasksScreen({
   initialStatus,
