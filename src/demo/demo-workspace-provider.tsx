@@ -1,4 +1,5 @@
 'use client';
+import { meetingAtVersion, replaceMeeting, editMeeting } from './meeting-management';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react';
@@ -283,6 +284,7 @@ export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
     today: DEMO_TODAY,
     permissions,
     supportsPersonnel: true,
+    supportsMeetingManagement: true,
     defaultSettings: initialState.settings,
     eligibleOwners:
       access.role === 'staff' ||
@@ -1008,6 +1010,91 @@ export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
       });
       if (ok) notify('บันทึกการประชุมแล้ว');
       return ok ? id : null;
+    },
+    async updateMeeting(id, expectedVersion, input) {
+      const ok = commit((previous) => {
+        requirePermission('meeting.manage');
+        return audit(
+          editMeeting(previous, id, expectedVersion, input),
+          'แก้ไขการประชุม',
+          id,
+          input.title,
+          input.reason,
+        );
+      });
+      if (ok) notify('บันทึกข้อมูลการประชุมแล้ว');
+      return ok;
+    },
+    async addAgenda(id, expectedVersion, input) {
+      const ok = commit((previous) => {
+        requirePermission('meeting.manage');
+        const meeting = meetingAtVersion(previous, id, expectedVersion);
+        if (!input.number.trim() || !input.title.trim())
+          throw new Error('กรอกเลขและชื่อวาระให้ครบ');
+        if (meeting.agenda.some((item) => item.number === input.number.trim()))
+          throw new Error('เลขวาระนี้มีอยู่แล้ว');
+        return audit(
+          replaceMeeting(previous, {
+            ...meeting,
+            agenda: [
+              ...meeting.agenda,
+              {
+                id: createId('agenda'),
+                number: input.number.trim(),
+                title: input.title.trim(),
+                resolutionIds: [],
+              },
+            ],
+          }),
+          'เพิ่มวาระ',
+          id,
+          meeting.title,
+          input.title,
+        );
+      });
+      if (ok) notify('เพิ่มวาระแล้ว');
+      return ok;
+    },
+    async linkResolution(id, expectedVersion, input) {
+      const ok = commit((previous) => {
+        requirePermission('meeting.manage');
+        requirePermission('resolution.draft');
+        const meeting = meetingAtVersion(previous, id, expectedVersion);
+        const resolution = previous.resolutions.find((item) => item.id === input.resolutionId);
+        const agenda = meeting.agenda.find((item) => item.id === input.agendaId);
+        if (!resolution || !agenda || !input.note.trim())
+          throw new Error('เลือกวาระ มติ และระบุหมายเหตุติดตาม');
+        if (agenda.resolutionIds.includes(resolution.id))
+          throw new Error('วาระนี้เชื่อมมติดังกล่าวแล้ว');
+        return audit(
+          replaceMeeting(previous, {
+            ...meeting,
+            agenda: meeting.agenda.map((item) =>
+              item.id !== agenda.id
+                ? item
+                : {
+                    ...item,
+                    resolutionIds: [...item.resolutionIds, resolution.id],
+                    followups: [
+                      ...(item.followups ?? []),
+                      {
+                        resolutionId: resolution.id,
+                        recordedAt: new Date().toISOString(),
+                        status: resolution.status,
+                        note: input.note.trim(),
+                      },
+                    ],
+                  },
+            ),
+          }),
+          'เชื่อมมติสืบเนื่อง',
+          id,
+          meeting.title,
+          input.note,
+        );
+      });
+      if (ok) notify('เชื่อมมติเดิมแล้ว');
+      return ok;
     },
     async updateSettings(patch) {
       const ok = commit((previous) => {

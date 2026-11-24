@@ -102,7 +102,9 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           สมัครด้วยอีเมลที่ผู้ดูแลเพิ่มไว้
         </Link>
         <br />
-        หากลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบของหน่วยงาน
+        <Link href="/forgot-password" className="underline underline-offset-4">
+          ลืมรหัสผ่าน
+        </Link>
       </p>
     </form>
   );

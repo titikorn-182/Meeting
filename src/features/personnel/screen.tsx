@@ -117,7 +117,7 @@ export function TeamScreen() {
               setQuery('');
               setUnit('all');
               setRoleFilter('all');
-              setFeedback(`เพิ่ม ${name} แล้ว · รอเจ้าตัวสมัครและยืนยันอีเมลเพื่อเข้าใช้งาน`);
+              setFeedback(`เพิ่ม ${name} แล้ว · รอเจ้าตัวสมัครและเข้าสู่ระบบด้วยอีเมลนี้`);
             }}
           />
         )}

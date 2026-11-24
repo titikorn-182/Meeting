@@ -89,7 +89,7 @@ export function AddPersonnel({
                   aria-describedby="personnel-email-hint"
                 />
                 <p id="personnel-email-hint" className="field-hint">
-                  ต้องสมัครและยืนยันด้วยอีเมลตรงกันจึงจะได้รับสิทธิ์
+                  ต้องสมัครและเข้าสู่ระบบด้วยอีเมลตรงกันจึงจะได้รับสิทธิ์
                 </p>
               </Field>
             </div>
@@ -166,7 +166,7 @@ export function AddPersonnel({
           </section>
           <div className={styles.personnelSubmit}>
             <p className={styles.signupNote}>
-              ระบบบันทึกรายชื่อโดยไม่ส่งอีเมลเชิญ โปรดแจ้งให้บุคลากรสมัครและยืนยันอีเมลด้วยตนเอง
+              ระบบบันทึกรายชื่อโดยไม่ส่งอีเมลเชิญ โปรดแจ้งให้บุคลากรสมัครและเข้าสู่ระบบด้วยตนเอง
               หากมีบัญชีอยู่แล้ว ให้เข้าสู่ระบบอีกครั้งเพื่อรับสิทธิ์
             </p>
             {error && (

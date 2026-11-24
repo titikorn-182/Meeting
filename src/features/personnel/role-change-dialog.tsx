@@ -97,7 +97,7 @@ export function RoleChangeDialog({
           )}
           {roleChange.person.membershipStatus === 'pending' && (
             <p className="inline-alert info">
-              สิทธิ์ใหม่นี้จะเริ่มใช้เมื่อบุคลากรสมัคร ยืนยันอีเมล และเข้าใช้งานพื้นที่ทำงาน
+              สิทธิ์ใหม่นี้จะเริ่มใช้เมื่อบุคลากรสมัครและเข้าสู่ระบบด้วยอีเมลที่ระบุไว้
             </p>
           )}
           {roleChange.person.id === state.currentUserId && roleChange.to !== 'admin' && (

@@ -41,7 +41,9 @@ export function MemberWorkload({
             {selected.membershipStatus === 'pending' ? (
               <div className={styles.pendingDetails}>
                 <Badge tone="warning">รอเข้าใช้งาน</Badge>
-                <p>ยังไม่มีภาระงาน บุคลากรจะรับงานได้หลังสมัครและยืนยันอีเมลตรงกับที่ระบุไว้</p>
+                <p>
+                  ยังไม่มีภาระงาน บุคลากรจะรับงานได้หลังสมัครและเข้าสู่ระบบด้วยอีเมลตรงกับที่ระบุไว้
+                </p>
                 {selected.email && (isAdmin || selected.id === state.currentUserId) && (
                   <p className={styles.pendingEmail}>{selected.email}</p>
                 )}

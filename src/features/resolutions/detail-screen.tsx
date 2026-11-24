@@ -195,7 +195,9 @@ export function ResolutionDetailView({
               <ResolutionHistory model={model} />
             </div>
           </section>
-          <ResolutionClosure model={model} />
+          <div id="resolution-closure">
+            <ResolutionClosure model={model} />
+          </div>
         </div>
         <ResolutionSummary model={model} />
       </div>

@@ -1096,3 +1096,15 @@ NFR-01–NFR-14 ของ PRD ต้องประเมินร่วมท�
 
 เอกสารนี้เป็นแบบฐานข้อมูลเป้าหมาย ส่วน implementation และผลทดสอบระยะแรกติดตามใน [supabase/README.md](supabase/README.md) การผ่าน tests ของบางโมดูลไม่ได้ถือเป็นการผ่านแผนทดสอบทั้งหมดใน §18
 
+
+## Implementation เพิ่มเติม: จัดการประชุมและวาระสืบเนื่อง
+
+Migration 202610250007_meeting_management.sql เพิ่ม private.meeting_resolution_followups อ้าง agenda และ resolution_cycle ภายในองค์กรเดียว เก็บ note, snapshot_status, recorded_at, recorded_by โดยไม่สร้าง cycle ใหม่ ใช้ primary key (organization_id, agenda_id, resolution_cycle_id) กันซ้ำ เปิด RLS และไม่ให้ client อ่าน/เขียนตรง
+
+คำสั่ง update_meeting, add_agenda, link_resolution ผ่าน workspace_command ตรวจ meeting.manage และ page access; link_resolution ต้องมี resolution.draft และหน้ามติด้วย ตรวจ expectedVersion กับ meetings.row_version ภายใต้ row lock ใช้ idempotency/audit เดิม ไม่เปลี่ยนการอนุญาตเริ่มหรือผลการปิดมติ
+
+get_workspace_state เติม rowVersion และ agenda.followups เฉพาะ full meeting projection ที่มีสิทธิ์อ่าน และคืนลิงก์เฉพาะมติที่อยู่ใน authorized snapshot อยู่แล้ว Staff ไม่ได้รับข้อมูลเพิ่ม features.meetingManagement แยก backend capability จากสิทธิ์ผู้ใช้ ดูขอบเขตทั้งหมดใน [FLOW-COVERAGE.md](FLOW-COVERAGE.md)
+
+## นโยบายรับสิทธิ์ 24 พฤศจิกายน 2569
+
+ตามคำขอผู้ดูแล migration 008 ให้บัญชี Auth ที่ล็อกอินได้และมีอีเมลตรงรายการบุคลากรรับสิทธิ์ได้โดยไม่ตรวจ email_confirmed_at/identity email_verified ไม่เปลี่ยนฟิลด์ยืนยันจริง ไม่ให้สิทธิ์บัญชี anonymous หรือคืนสิทธิ์สมาชิกที่ถูกปิด รายละเอียดและขั้นตอนตั้งค่า Auth อยู่ใน [EMAIL-ACCESS.md](supabase/EMAIL-ACCESS.md) นโยบายนี้แทนเงื่อนไขยืนยันอีเมลเดิมสำหรับการ claim เท่านั้น

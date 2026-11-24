@@ -176,7 +176,9 @@ try {
       main.getByRole('heading', { name: 'ยังไม่ได้กำหนดหน้าใช้งานสำหรับบทบาทนี้', exact: true }),
     ).toBeVisible();
     await expect(page.locator('.sidebar .sidebar-nav a')).toHaveCount(0);
-    await expect(page.locator('a[href^="/"]')).toHaveCount(0);
+    await expect(
+      page.locator('a[href^="/"]:not([href="/help"]):not([href="/account"])'),
+    ).toHaveCount(0);
     await expect(picker).toHaveValue(role);
     assert.equal(new URL(page.url()).pathname, '/');
   }

@@ -1,4 +1,5 @@
 'use client';
+import { useUrlFilter } from '@/hooks/use-url-filter';
 
 import { useMemo, useState } from 'react';
 import { AccessLink as Link } from '@/components/app-shell';
@@ -34,9 +35,9 @@ function csvCell(value: string | number) {
 export function ReportsScreen() {
   const { state, notify, mode, permissions, users, today, units, refresh, busy } = useWorkspace();
   const [exporting, setExporting] = useState(false);
-  const [unit, setUnit] = useState('all');
-  const [meetingId, setMeetingId] = useState('all');
-  const [view, setView] = useState<'units' | 'tasks' | 'overdue'>('units');
+  const [unit, setUnit] = useUrlFilter('unit', 'all');
+  const [meetingId, setMeetingId] = useUrlFilter('meetingId', 'all');
+  const [view, setView] = useUrlFilter('view', 'units');
   const {
     tasks: filtered,
     accepted,

@@ -61,6 +61,9 @@ export function WorkspaceGate({
           {configured && problem?.code !== 'UNAUTHENTICATED' && (
             <SignOutForm label="เปลี่ยนบัญชี" className="button button-secondary" />
           )}
+          <Link className="button button-secondary" href="/help">
+            วิธีแก้ปัญหาเข้าใช้งาน
+          </Link>
         </div>
       )}
     </main>

@@ -3,7 +3,10 @@ import { decodeCommandResult } from '@/lib/workspace-commands';
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { workspaceAuthFailure } from '@/lib/supabase/auth-failure';
 import { SupabaseConfigurationError, requireSupabaseConfiguration } from '@/lib/supabase/config';
-import { isPersonnelClaimUnavailable, needsVerifiedPersonnelEmail } from '@/lib/supabase/personnel';
+import {
+  isPersonnelClaimUnavailable,
+  isLegacyPersonnelVerificationGate,
+} from '@/lib/supabase/personnel';
 import { WorkspaceError } from '@/lib/workspace';
 import {
   assertSameOrigin,
@@ -43,7 +46,7 @@ export async function GET(request: Request) {
       new URL(request.url).searchParams.get('organizationId') || configuration.organizationId;
     if (requestedOrg && !isUuid(requestedOrg)) throw new WorkspaceError('VALIDATION_FAILED', 400);
     const client = await clientForUser();
-    // Claim only prior administrator-approved invitations for this verified Auth identity.
+    // Claim only prior administrator-approved invitations for this authenticated identity.
     // Older deployments without migration 006 retain their existing workspace behavior.
     const claim = await client.rpc('claim_workspace_invitations', {});
     if (claim.error && !isPersonnelClaimUnavailable(claim.error))
@@ -54,8 +57,8 @@ export async function GET(request: Request) {
     );
     if (error) {
       const problem = mapDatabaseError(error);
-      if (problem.code === 'NO_MEMBERSHIP' && needsVerifiedPersonnelEmail(claim.data))
-        throw new WorkspaceError('EMAIL_VERIFICATION_REQUIRED', 403);
+      if (problem.code === 'NO_MEMBERSHIP' && isLegacyPersonnelVerificationGate(claim.data))
+        throw new WorkspaceError('SCHEMA_NOT_READY', 503);
       throw problem;
     }
     if (data && typeof data === 'object' && !('access' in data))

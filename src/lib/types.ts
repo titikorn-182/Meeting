@@ -96,6 +96,7 @@ export interface Resolution {
 
 export interface Meeting {
   id: string;
+  rowVersion?: number;
   title: string;
   number: string;
   date: string;
@@ -103,8 +104,18 @@ export interface Meeting {
   location: string;
   status: 'scheduled' | 'completed';
   committee: string;
-  agenda: { id: string; number: string; title: string; resolutionIds: string[] }[];
+  agenda: {
+    id: string;
+    number: string;
+    title: string;
+    resolutionIds: string[];
+    followups?: { resolutionId: string; recordedAt: string; status: string; note: string }[];
+  }[];
 }
+
+export type MeetingUpdate = Pick<Meeting, 'title' | 'date' | 'time' | 'location' | 'status'> & {
+  reason: string;
+};
 
 export interface ChangeRequest {
   id: string;

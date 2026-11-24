@@ -8,12 +8,22 @@ import { useWorkspace } from '@/components/workspace-context';
 import { Button, Field, PageHeader, Panel } from '@/components/ui';
 import type { Resolution } from '@/lib/types';
 
-export function ResolutionCreate() {
+export function ResolutionCreate({
+  initialMeetingId,
+  initialAgenda,
+}: {
+  initialMeetingId?: string;
+  initialAgenda?: string;
+}) {
   const { state, addResolution, permissions, users, busy, units } = useWorkspace();
   const activeUsers = users.filter((user) => user.membershipStatus !== 'pending');
   const router = useRouter();
   const [type, setType] = useState<Resolution['type']>('action');
   const [content, setContent] = useState('');
+  const [selectedMeeting, setSelectedMeeting] = useState(
+    state.meetings.some((item) => item.id === initialMeetingId) ? initialMeetingId : '',
+  );
+  const [selectedAgenda, setSelectedAgenda] = useState(initialAgenda ?? '');
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -70,7 +80,11 @@ export function ResolutionCreate() {
                   className="select"
                   name="meetingId"
                   required
-                  defaultValue=""
+                  value={selectedMeeting}
+                  onChange={(event) => {
+                    setSelectedMeeting(event.target.value);
+                    setSelectedAgenda('');
+                  }}
                 >
                   <option value="" disabled>
                     เลือกการประชุม
@@ -87,6 +101,8 @@ export function ResolutionCreate() {
                   id="resolution-agenda"
                   className="input"
                   name="agenda"
+                  value={selectedAgenda}
+                  onChange={(event) => setSelectedAgenda(event.target.value)}
                   placeholder="เช่น 4.1"
                   required
                   maxLength={20}

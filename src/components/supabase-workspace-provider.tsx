@@ -33,6 +33,7 @@ export function SupabaseWorkspaceProvider({ children }: { children: ReactNode })
     notify,
     defaultSettings: DEFAULT_TRACKING_SETTINGS,
     supportsPersonnel: snapshot.features?.personnelManagement === true,
+    supportsMeetingManagement: snapshot.features?.meetingManagement === true,
     ...createWorkspaceActions(session, notify),
   };
   return (

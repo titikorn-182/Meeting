@@ -1,0 +1,11 @@
+.roleTable.roleTable {
+  min-width: 0;
+  table-layout: fixed;
+}
+.roleTable th:first-child {
+  width: 6rem;
+}
+.roleTable td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

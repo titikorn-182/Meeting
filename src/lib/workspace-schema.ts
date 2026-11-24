@@ -106,7 +106,18 @@ const meetingSummary = meetingSelector.extend({
   committee: text,
 });
 const meetingSchema = meetingSummary.extend({
-  agenda: z.array(z.object({ id: identifier, number: text, title: text, resolutionIds: strings })),
+  rowVersion: version.optional(),
+  agenda: z.array(
+    z.object({
+      id: identifier,
+      number: text,
+      title: text,
+      resolutionIds: strings,
+      followups: z
+        .array(z.object({ resolutionId: identifier, recordedAt: text, status: text, note: text }))
+        .optional(),
+    }),
+  ),
 });
 const settingsSchema = z.object({
   reminderDays: z.array(z.number().int().min(0).max(365)),
@@ -173,7 +184,9 @@ const headerSchema = z.object({
   permissions: strings,
   roles: z.array(role),
   access: z.custom<AccessControl>(isAccessControl),
-  features: z.object({ personnelManagement: z.boolean() }).optional(),
+  features: z
+    .object({ personnelManagement: z.boolean(), meetingManagement: z.boolean().optional() })
+    .optional(),
 });
 export const workspaceSnapshotSchema = headerSchema
   .extend({ state: workspaceStateSchema })

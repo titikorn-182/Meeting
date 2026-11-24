@@ -137,6 +137,53 @@ try {
     page.getByRole('button', { name: 'ตรวจเกณฑ์และรับรองปิด', exact: true }),
   ).toBeDisabled();
   assert.equal(writes.length, 1, 'Read-only checks must not submit a connected workflow command');
+  // The new editor stays disabled against an older database and preserves stale drafts.
+  const meetingId = initialState.meetings[0].id;
+  const editorPayload = { ...payload, permissions: ['meeting.manage', 'resolution.draft'] };
+  response = { status: 200, body: editorPayload };
+  await page.goto(base + '/meetings/' + meetingId + '/manage', { waitUntil: 'networkidle' });
+  await expect(
+    page.getByRole('heading', { name: 'การจัดการประชุมยังไม่พร้อม', exact: true }),
+  ).toBeVisible();
+  const editorState = {
+    ...payload.state,
+    meetings: payload.state.meetings.map((m) => ({ ...m, rowVersion: 1 })),
+  };
+  response = {
+    status: 200,
+    body: {
+      ...editorPayload,
+      state: editorState,
+      features: { personnelManagement: true, meetingManagement: true },
+    },
+  };
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('#edit-title').fill('Unsaved meeting draft');
+  await page.locator('#edit-reason').fill('Reason retained');
+  const refreshed = page.waitForResponse(
+    (r) => r.url().includes('/api/workspace') && r.request().method() === 'GET',
+  );
+  response = {
+    status: 200,
+    body: {
+      ...response.body,
+      state: {
+        ...editorState,
+        meetings: editorState.meetings.map((m) =>
+          m.id === meetingId ? { ...m, rowVersion: 2, title: 'Saved by another person' } : m,
+        ),
+      },
+    },
+  };
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await refreshed;
+  await expect(page.locator('#main-content [role=alert]')).toContainText(
+    'ข้อมูลประชุมเปลี่ยนระหว่างแก้ไข',
+  );
+  await expect(page.locator('#edit-title')).toHaveValue('Unsaved meeting draft');
+  await expect(page.getByRole('button', { name: 'บันทึกการแก้ไข', exact: true })).toBeDisabled();
+  assert.equal(writes.length, 1, 'A stale meeting form must not send a mutation');
+  page.on('dialog', (dialog) => dialog.accept());
   for (const problem of [
     { status: 503, body: { error: { code: 'CONNECTION_FAILED' } } },
     { status: 401, body: { error: { code: 'UNAUTHENTICATED' } } },
@@ -163,6 +210,8 @@ try {
       settingsDraftSurvivesRefreshAndTabs: true,
       settingsDraftResetsOnAuthoritativeChange: true,
       connectedFeatureScreens: true,
+      meetingCapabilityGate: true,
+      meetingStaleDraftPreserved: true,
       failureNeverFallsBack: true,
       demoStorageUntouched: true,
       demoChunkNotLoaded: true,

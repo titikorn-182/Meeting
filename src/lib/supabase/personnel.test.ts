@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { isPersonnelClaimUnavailable, needsVerifiedPersonnelEmail } from './personnel';
+import { isPersonnelClaimUnavailable, isLegacyPersonnelVerificationGate } from './personnel';
 import { parseSignUpInput, signUpCallbackUrl } from './signup';
 import { parseWorkspaceCommand, mapDatabaseError } from '../workspace-validation';
 
@@ -89,9 +89,15 @@ test('old schema compatibility never swallows an error inside the claim function
   ]) {
     assert.equal(isPersonnelClaimUnavailable(error), false);
   }
-  assert.equal(needsVerifiedPersonnelEmail({ claimed: 0, emailVerified: false }), true);
-  for (const data of [null, {}, { emailVerified: 'false' }, { emailVerified: true }])
-    assert.equal(needsVerifiedPersonnelEmail(data), false);
+  assert.equal(isLegacyPersonnelVerificationGate({ claimed: 0, emailVerified: false }), true);
+  for (const data of [
+    null,
+    {},
+    { emailVerified: 'false' },
+    { emailVerified: true },
+    { claimed: 1, emailVerificationRequired: false, claimPolicy: 'admin_email_match' },
+  ])
+    assert.equal(isLegacyPersonnelVerificationGate(data), false);
 });
 
 test('signup validates confirmation without trimming or changing the password', () => {

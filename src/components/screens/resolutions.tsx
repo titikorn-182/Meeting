@@ -1,7 +1,8 @@
 'use client';
+import { useUrlFilter } from '@/hooks/use-url-filter';
 
 import { AccessLink as Link } from '@/components/app-shell';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   ArrowRight,
   ChevronLeft,
@@ -21,10 +22,12 @@ const PAGE_SIZE = 8;
 
 export function ResolutionsScreen({ initialStatus = 'all' }: { initialStatus?: string }) {
   const { state, permissions, users, today } = useWorkspace();
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState(initialStatus);
-  const [type, setType] = useState('all');
-  const [page, setPage] = useState(1);
+  const [query, setQuery] = useUrlFilter('q', '');
+  const [status, setStatus] = useUrlFilter('status', initialStatus);
+  const [type, setType] = useUrlFilter('type', 'all');
+  const [pageValue, setPageValue] = useUrlFilter('page', '1');
+  const page = /^\d+$/.test(pageValue) ? Math.max(1, Math.min(100000, Number(pageValue))) : 1;
+  const setPage = (next: number) => setPageValue(String(next));
   const taskIndex = useMemo(() => buildTaskIndex(state.tasks, today), [state.tasks, today]);
   const usersById = useMemo(() => new Map(users.map((person) => [person.id, person])), [users]);
   const filtered = state.resolutions.filter(
@@ -51,6 +54,9 @@ export function ResolutionsScreen({ initialStatus = 'all' }: { initialStatus?: s
         title="ทะเบียนมติ"
         description="เชื่อมทุกมติกับงาน ผู้รับผิดชอบ และหลักฐานในที่เดียว"
       >
+        <Link href="/resolutions/closures" className="button button-secondary">
+          มติรอรับรองปิด
+        </Link>
         {permissions.includes('resolution.draft') && (
           <Link href="/resolutions/new" className="button button-primary">
             <Plus size={17} />

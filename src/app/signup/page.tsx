@@ -29,7 +29,7 @@ export default function SignUpPage() {
               <br />
               ในพื้นที่ของคุณ
             </h2>
-            <p>สมัครด้วยอีเมลที่ผู้ดูแลระบุ ยืนยันตัวตน แล้วเข้าถึงงานตามบทบาทที่ได้รับ</p>
+            <p>สมัครด้วยอีเมลที่ผู้ดูแลระบุ แล้วเข้าถึงงานตามบทบาทที่ได้รับ</p>
           </div>
           <div className={styles.context}>
             <p>ชื่อและสิทธิ์มาจากผู้ดูแลหน่วยงาน</p>
@@ -40,7 +40,7 @@ export default function SignUpPage() {
           <div className={styles.contentInner}>
             <h1 id="signup-heading">สมัครบัญชีบุคลากร</h1>
             <p className={styles.description}>
-              ตั้งรหัสผ่านของคุณ แล้วเปิดอีเมลยืนยันก่อนเข้าใช้งาน
+              ตั้งรหัสผ่านของคุณเพื่อเข้าสู่พื้นที่ทำงานตามสิทธิ์ที่ผู้ดูแลกำหนด
             </p>
             <SignUpForm enabled={enabled} />
           </div>

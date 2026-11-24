@@ -11,7 +11,7 @@
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit --incremental false",
     "test": "tsx --test src/lib/*.test.ts src/lib/supabase/*.test.ts src/demo/*.test.ts",
-    "test:db": "node --import tsx supabase/tests/integration.mjs && node --import tsx supabase/tests/role-access.mjs && node --import tsx supabase/tests/personnel.mjs && node supabase/tests/setup-secretary.mjs && node supabase/tests/setup-admin.mjs",
+    "test:db": "node --import tsx supabase/tests/integration.mjs && node --import tsx supabase/tests/role-access.mjs && node --import tsx supabase/tests/personnel.mjs && node supabase/tests/setup-secretary.mjs && node supabase/tests/setup-admin.mjs && node --import tsx supabase/tests/meeting-management.mjs && node supabase/tests/personnel-email-access.mjs",
     "test:auth-ui": "node tests/auth-visual.mjs",
     "test:workspace-ui": "node tests/workspace-smoke.mjs",
     "lint": "eslint . --max-warnings 0",
@@ -23,7 +23,11 @@
     "test:auth-session-ui": "node --import tsx tests/auth-session-smoke.mjs",
     "test:report-ui": "node --import tsx tests/report-filters-smoke.mjs",
     "test:styles-ui": "node tests/style-regression.mjs",
-    "benchmark:selectors": "node --import tsx tests/selectors-benchmark.mjs"
+    "benchmark:selectors": "node --import tsx tests/selectors-benchmark.mjs",
+    "test:account-ui": "node --import tsx tests/account-flows-smoke.mjs",
+    "test:meeting-ui": "node tests/meeting-flows-smoke.mjs",
+    "test:list-navigation-ui": "node tests/list-navigation-smoke.mjs",
+    "test:signup-ui": "node --import tsx tests/signup-access-smoke.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-thai": "^5.2.0",

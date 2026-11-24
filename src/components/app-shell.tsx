@@ -203,13 +203,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Settings2 size={19} strokeWidth={1.65} />
           <span>การตั้งค่า</span>
         </AccessLink>
-        <div className="sidebar-user">
+        <Link href="/help" className="nav-link" onClick={() => setMobileOpen(false)}>
+          <BookOpenCheck size={19} strokeWidth={1.65} />
+          <span>คู่มือและความช่วยเหลือ</span>
+        </Link>
+        <Link
+          href="/account"
+          className="sidebar-user"
+          aria-label="บัญชีและรหัสผ่าน"
+          onClick={() => setMobileOpen(false)}
+        >
           <Avatar userId={user.id} />
           <div>
             <strong>{user.name}</strong>
             <small>{accessRoleLabels[access.role]}</small>
           </div>
-        </div>
+        </Link>
       </div>
     </>
   );

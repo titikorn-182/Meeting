@@ -12,6 +12,7 @@ export interface SignInState {
 }
 export interface SignUpState {
   error: string | null;
+  redirectTo?: string;
   message?: string;
 }
 
@@ -22,8 +23,7 @@ export async function signUp(_previous: SignUpState, formData: FormData): Promis
   const input = parseSignUpInput(formData);
   if (!input) return { error: 'ตรวจอีเมล และใช้รหัสผ่าน 12–128 ตัวอักษรที่ตรงกันทั้งสองช่อง' };
   const emailRedirectTo = signUpCallbackUrl((await headers()).get('origin'));
-  if (!emailRedirectTo)
-    return { error: 'ไม่สามารถระบุหน้าสำหรับยืนยันบัญชีได้ กรุณาเปิดหน้าสมัครใหม่' };
+  if (!emailRedirectTo) return { error: 'ไม่สามารถระบุที่อยู่ของเว็บได้ กรุณาเปิดหน้าสมัครใหม่' };
   try {
     const client = await createServerSupabaseClient();
     const { data, error } = await client.auth.signUp({ ...input, options: { emailRedirectTo } });
@@ -34,17 +34,11 @@ export async function signUp(_previous: SignUpState, formData: FormData): Promis
             ? 'ส่งคำขอหลายครั้ง กรุณารอสักครู่แล้วลองใหม่'
             : 'ยังสมัครไม่ได้ กรุณาตรวจข้อมูลและลองใหม่ หากมีบัญชีแล้วให้เข้าสู่ระบบ หรือติดต่อผู้ดูแล',
       };
-    if (data.session) {
-      await client.auth.signOut({ scope: 'local' });
-      return {
-        error:
-          'บัญชีถูกสร้างแล้ว แต่ขั้นตอนยืนยันอีเมลยังไม่พร้อม กรุณาติดต่อผู้ดูแลก่อนรับสิทธิ์เข้าใช้งาน',
-      };
-    }
+    if (data.session) return { error: null, redirectTo: '/' };
     return {
       error: null,
       message:
-        'ตรวจกล่องจดหมายและโฟลเดอร์สแปมเพื่อยืนยันอีเมล หากมีบัญชีที่ยืนยันแล้ว ให้เข้าสู่ระบบได้เลย สิทธิ์จะผูกเมื่ออีเมลตรงกับรายชื่อที่ผู้ดูแลเพิ่มไว้',
+        'ยังไม่ได้รับเซสชันเข้าสู่ระบบ หากมีบัญชีแล้วให้เข้าสู่ระบบ หากเพิ่งสมัครให้ติดต่อผู้ดูแลตรวจการตั้งค่าบัญชีของระบบ',
     };
   } catch {
     return { error: 'ติดต่อระบบสมัครบัญชีไม่ได้ กรุณาลองใหม่อีกครั้ง' };

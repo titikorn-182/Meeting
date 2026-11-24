@@ -6,7 +6,18 @@ import { AppShell } from './app-shell';
 
 export function Application({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/'))
+  if (
+    [
+      '/login',
+      '/signup',
+      '/forgot-password',
+      '/reset-password',
+      '/verify-email',
+      '/account',
+      '/help',
+    ].includes(pathname) ||
+    pathname.startsWith('/auth/')
+  )
     return children;
   return (
     <WorkspaceProvider>

@@ -8,6 +8,7 @@ import type {
   WorkspaceState,
   Evidence,
   Meeting,
+  MeetingUpdate,
   PersonnelInput,
   Resolution,
   WorkflowRole,
@@ -31,6 +32,18 @@ export interface WorkspaceContextValue {
   organization?: { id: string; name: string };
   access: AccessControl;
   supportsPersonnel: boolean;
+  supportsMeetingManagement: boolean;
+  updateMeeting: (id: string, expectedVersion: number, input: MeetingUpdate) => Promise<boolean>;
+  addAgenda: (
+    id: string,
+    expectedVersion: number,
+    input: { number: string; title: string },
+  ) => Promise<boolean>;
+  linkResolution: (
+    id: string,
+    expectedVersion: number,
+    input: { agendaId: string; resolutionId: string; note: string },
+  ) => Promise<boolean>;
   defaultSettings: WorkspaceSettings;
   addPersonnel: (input: PersonnelInput) => Promise<string | null>;
   setPendingPersonnelRole: (

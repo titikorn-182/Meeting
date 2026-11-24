@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { initialState, users } from '../../src/demo/fixtures/workspace.ts';
 import { DEFAULT_ROLE_PAGES } from '../../src/lib/access-control.ts';
 
@@ -17,6 +17,17 @@ export async function localAuthServer(port) {
   ];
   const tokens = new Map();
   const refreshTokens = new Map();
+  const passwords = new Map(accounts.map((account) => [account.id, 'local-test-password']));
+  const recoveryCodes = new Map();
+  const emailRequests = [];
+  let passwordUpdates = 0;
+  let signupIssuesSession = true;
+  let workspaceAccess = true;
+  let claimResponse = {
+    claimed: 0,
+    emailVerificationRequired: false,
+    claimPolicy: 'admin_email_match',
+  };
   const stats = { signIns: 0, refreshes: 0, signOuts: 0, reads: 0, writes: 0, unexpected: [] };
   let logoutWait;
   let logoutFailure = false;
@@ -92,7 +103,43 @@ export async function localAuthServer(port) {
       let raw = '';
       for await (const chunk of request) raw += chunk;
       const data = raw ? JSON.parse(raw) : {};
+      if (url.pathname === '/auth/v1/signup') {
+        if (accounts.some((a) => a.email === data.email))
+          return json(400, { code: 'user_already_exists', msg: 'Account already exists' });
+        const created = { id: randomUUID(), email: data.email, name: 'Signup Test' };
+        accounts.push(created);
+        passwords.set(created.id, data.password);
+        shortSession = false;
+        return json(200, signupIssuesSession ? session(created) : user(created));
+      }
+      if (url.pathname === '/auth/v1/recover' || url.pathname === '/auth/v1/resend') {
+        if (data.email === 'rate@example.test')
+          return json(429, { code: 'over_email_send_rate_limit', msg: 'Test throttle' });
+        const found = accounts.find((item) => item.email === data.email);
+        const code = found ? randomUUID() : undefined;
+        if (found && url.pathname.endsWith('/recover'))
+          recoveryCodes.set(code, { account: found, challenge: data.code_challenge });
+        emailRequests.push({
+          kind: url.pathname.endsWith('/recover') ? 'recovery' : 'confirmation',
+          email: data.email,
+          code,
+          redirectTo: url.searchParams.get('redirect_to'),
+        });
+        return json(200, {});
+      }
       if (url.pathname === '/auth/v1/token') {
+        if (url.searchParams.get('grant_type') === 'pkce') {
+          const recovery = recoveryCodes.get(data.auth_code);
+          const challenge =
+            typeof data.code_verifier === 'string'
+              ? createHash('sha256').update(data.code_verifier).digest('base64url')
+              : '';
+          if (!recovery || recovery.challenge !== challenge)
+            return json(400, { code: 'flow_state_not_found', msg: 'Invalid recovery test code' });
+          recoveryCodes.delete(data.auth_code);
+          shortSession = false; // Recovery sessions use normal TTL; password login tests refresh separately.
+          return json(200, session(recovery.account));
+        }
         if (url.searchParams.get('grant_type') === 'refresh_token') {
           ++stats.refreshes;
           const refreshed = refreshTokens.get(data.refresh_token);
@@ -102,9 +149,17 @@ export async function localAuthServer(port) {
         }
         ++stats.signIns;
         const found = accounts.find((item) => item.email === data.email);
-        return found && data.password === 'local-test-password'
+        return found && data.password === passwords.get(found.id)
           ? json(200, session(found))
           : json(400, { code: 'invalid_credentials', msg: 'Invalid test credentials' });
+      }
+      if (url.pathname === '/auth/v1/user' && request.method === 'PUT') {
+        if (!account) return json(401, { code: 'bad_jwt', msg: 'Expired test session' });
+        if (typeof data.password !== 'string' || data.password === passwords.get(account.id))
+          return json(422, { code: 'same_password', msg: 'Choose new password' });
+        passwords.set(account.id, data.password);
+        passwordUpdates++;
+        return json(200, user(account));
       }
       if (url.pathname === '/auth/v1/user')
         return account
@@ -123,8 +178,9 @@ export async function localAuthServer(port) {
       }
       if (url.pathname.startsWith('/rest/v1/rpc/')) {
         if (!account) return json(401, { message: 'UNAUTHENTICATED' });
-        if (url.pathname.endsWith('/claim_workspace_invitations')) return json(200, {});
+        if (url.pathname.endsWith('/claim_workspace_invitations')) return json(200, claimResponse);
         if (url.pathname.endsWith('/get_workspace_state')) {
+          if (!workspaceAccess) return json(403, { code: '42501', message: 'NO_MEMBERSHIP' });
           ++stats.reads;
           return json(200, snapshot(account));
         }
@@ -145,6 +201,17 @@ export async function localAuthServer(port) {
   });
   return {
     stats,
+    emailRequests,
+    signupWithSession: (value) => {
+      signupIssuesSession = value;
+    },
+    allowWorkspace: (value) => {
+      workspaceAccess = value;
+    },
+    setClaimResponse: (value) => {
+      claimResponse = value;
+    },
+    passwordUpdates: () => passwordUpdates,
     pauseLogout() {
       let release;
       logoutWait = new Promise((resolve) => {

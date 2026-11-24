@@ -1,4 +1,5 @@
 'use client';
+import { useUrlFilter } from '@/hooks/use-url-filter';
 
 import { useMemo, useState, type FormEvent } from 'react';
 import { AccessLink as Link } from '@/components/app-shell';
@@ -23,8 +24,8 @@ import type { Meeting } from '@/lib/types';
 export function MeetingsScreen() {
   const { state, addMeeting, notify, permissions, today, busy } = useWorkspace();
   const router = useRouter();
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
+  const [query, setQuery] = useUrlFilter('q', '');
+  const [status, setStatus] = useUrlFilter('status', 'all');
   const [creating, setCreating] = useState(false);
   const canCreate = permissions.includes('meeting.manage');
   const meetings = useMemo(
@@ -372,7 +373,7 @@ export function MeetingsScreen() {
 }
 
 export function MeetingDetailScreen({ id }: { id: string }) {
-  const { state, busy } = useWorkspace();
+  const { state, busy, permissions, supportsMeetingManagement } = useWorkspace();
   const meeting = state.meetings.find((item) => item.id === id);
   if (!meeting)
     return (
@@ -404,6 +405,11 @@ export function MeetingDetailScreen({ id }: { id: string }) {
         ทะเบียนการประชุม
       </Link>
       <PageHeader title={`การประชุมครั้งที่ ${meeting.number}`} description={meeting.title}>
+        {permissions.includes('meeting.manage') && supportsMeetingManagement && (
+          <Link href={`/meetings/${id}/manage`} className="button button-primary">
+            จัดการประชุมและวาระ
+          </Link>
+        )}
         <Button disabled={busy} variant="secondary" onClick={() => window.print()}>
           <Printer size={16} />
           พิมพ์วาระ
@@ -443,6 +449,15 @@ export function MeetingDetailScreen({ id }: { id: string }) {
                     </span>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-[15px] font-semibold">{agenda.title}</h3>
+                      {permissions.includes('resolution.draft') && (
+                        <Link
+                          className="text-link mt-2"
+                          href={`/resolutions/new?meetingId=${encodeURIComponent(id)}&agenda=${encodeURIComponent(agenda.number)}`}
+                        >
+                          <Plus size={14} />
+                          บันทึกมติในวาระนี้
+                        </Link>
+                      )}
                       {agenda.resolutionIds.length ? (
                         <div className="mt-3 space-y-2">
                           {agenda.resolutionIds.map((resolutionId) => {
@@ -469,6 +484,20 @@ export function MeetingDetailScreen({ id }: { id: string }) {
                       ) : (
                         <p className="muted text-small mt-2">ยังไม่มีมติที่เชื่อมกับวาระนี้</p>
                       )}
+                      {agenda.followups?.map((followup) => (
+                        <div key={followup.resolutionId} className="mt-3 text-sm">
+                          <p className="muted">
+                            ติดตาม{' '}
+                            {
+                              state.resolutions.find((item) => item.id === followup.resolutionId)
+                                ?.code
+                            }{' '}
+                            · บันทึก {formatThaiDate(followup.recordedAt)} · สถานะขณะเชื่อม{' '}
+                            <Badge status={followup.status} />
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap">{followup.note}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>

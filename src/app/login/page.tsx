@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; message?: string }>;
 }) {
   const params = await searchParams;
   const config = getDataConfiguration();
@@ -64,6 +64,11 @@ export default async function LoginPage({
                 <p className={styles.description}>
                   ใช้อีเมลและรหัสผ่านของบัญชีที่ได้รับสิทธิ์เข้าใช้งาน
                 </p>
+                {params.message === 'password-updated' && (
+                  <p className="inline-alert success" role="status">
+                    บันทึกรหัสผ่านใหม่แล้ว กรุณาเข้าสู่ระบบอีกครั้ง
+                  </p>
+                )}
                 <LoginForm next={safeRedirectPath(params.next)} initialError={initialError} />
               </>
             ) : config.mode === 'demo' ? (

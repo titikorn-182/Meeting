@@ -185,6 +185,31 @@ export function parseWorkspaceCommand(value: unknown): WorkspaceCommand {
       };
       break;
     }
+    case 'update_meeting': {
+      const time = text(p.time, 5);
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return invalid();
+      payload = {
+        ...target(),
+        title: text(p.title, 500),
+        date: date(p.date),
+        time,
+        location: text(p.location, 1000),
+        status: choice(p.status, ['scheduled', 'completed']),
+        reason: text(p.reason, 2000),
+      };
+      break;
+    }
+    case 'add_agenda':
+      payload = { ...target(), number: text(p.number, 50), title: text(p.title, 1000) };
+      break;
+    case 'link_resolution':
+      payload = {
+        ...target(),
+        agendaId: id(p.agendaId),
+        resolutionId: id(p.resolutionId),
+        note: text(p.note, 2000),
+      };
+      break;
     case 'update_settings': {
       const patch = record(p.patch);
       const safe: Record<string, unknown> = {};

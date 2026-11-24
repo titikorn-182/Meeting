@@ -1,11 +1,12 @@
 'use client';
+import { useUrlFilter } from '@/hooks/use-url-filter';
 
 import { AccessLink as Link } from '@/components/app-shell';
 import { Avatar, Badge, EmptyState, PageHeader, Panel, ProgressBar } from '@/components/ui';
 import { useWorkspace } from '@/components/workspace-context';
 import { daysUntil, formatThaiDate, isOverdue } from '@/lib/workflow';
 import { ArrowRight, CheckCheck, ClipboardList, FileDown, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { taskStatusLabels } from '@/features/tasks/task-status';
 export { taskStatusLabels } from '@/features/tasks/task-status';
@@ -18,10 +19,10 @@ export function TasksScreen({
   initialScope?: string;
 }) {
   const { state, access, mode, users, today, units } = useWorkspace();
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState(initialStatus ?? 'all');
-  const [scope, setScope] = useState(initialScope ?? (initialStatus ? 'all' : 'mine'));
-  const [unit, setUnit] = useState('all');
+  const [query, setQuery] = useUrlFilter('q', '');
+  const [status, setStatus] = useUrlFilter('status', initialStatus ?? 'all');
+  const [scope, setScope] = useUrlFilter('scope', initialScope ?? (initialStatus ? 'all' : 'mine'));
+  const [unit, setUnit] = useUrlFilter('unit', 'all');
   const filtered = useMemo(
     () =>
       state.tasks.filter((task) => {

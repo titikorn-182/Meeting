@@ -1,11 +1,13 @@
 # Supabase: ชุดเชื่อมต่อเว็บระยะแรก
 
+> อัปเดต 24 พ.ย. 2569: นโยบายปัจจุบันไม่บังคับยืนยันอีเมลก่อนรับสิทธิ์ ใช้ migration 008 และปิด Confirm email ใน Supabase ดู [คู่มือเปลี่ยนนโยบาย](EMAIL-ACCESS.md) ข้อความการยืนยันอีเมลในบันทึกเวอร์ชันเดิมด้านล่างเป็นนโยบายก่อนการอัปเดตนี้
+
 โฟลเดอร์นี้ใช้ [database.md](../database.md) เป็นแบบเป้าหมาย โดยทำเส้นทางที่หน้าจอปัจจุบันใช้งานจริงก่อน เก็บข้อมูลธุรกิจเป็นตารางสัมพันธ์ ไม่มีการเก็บ DemoState ทั้งก้อนลงฐานข้อมูล และไม่มีการนำข้อมูล demo/localStorage ไปสร้างเป็นข้อมูลจริงโดยอัตโนมัติ
 
 ## เตรียม Supabase project เมื่อพร้อมใส่ keys
 
 1. สร้าง Supabase project และเก็บ Project URL กับ publishable key ตาม `.env.example` ที่ root ไม่ต้องนำ secret/service-role key ไปใส่ browser
-2. ใน SQL Editor ของ project ใหม่ คัดลอกเนื้อหาทั้งหมดจาก [install.sql](install.sql) แล้วกด Run **ครั้งเดียว** ไฟล์นี้รวม migrations 001–006 ทั้ง 6 ไฟล์ตามลำดับไว้แล้ว จึงไม่ต้องรันไฟล์แยกซ้ำ หากใช้ Supabase CLI ให้เลือกใช้ `migrations/` กับ migration workflow ของ CLI แทน ไม่รันซ้ำสองวิธี
+2. ใน SQL Editor ของ project ใหม่ คัดลอกเนื้อหาทั้งหมดจาก [install.sql](install.sql) แล้วกด Run **ครั้งเดียว** ไฟล์นี้รวม migrations 001–008 ทั้ง 8 ไฟล์ตามลำดับไว้แล้ว จึงไม่ต้องรันไฟล์แยกซ้ำ หากใช้ Supabase CLI ให้เลือกใช้ `migrations/` กับ migration workflow ของ CLI แทน ไม่รันซ้ำสองวิธี
 3. สร้างผู้ใช้จริงใน Authentication → Users และตั้งวิธี login/password ตามหน้าเข้าสู่ระบบของเว็บ บัญชี Auth เพียงอย่างเดียวยังเข้า workspace ไม่ได้
 4. คัดลอก [bootstrap.example.sql](bootstrap.example.sql) ไปแก้ UUID จริง แล้วรันเฉพาะคำสั่งที่ต้องการผ่าน SQL Editor เพื่อสร้างองค์กร หน่วยงาน และให้บทบาทอย่างชัดเจน ห้ามรัน placeholders โดยไม่แก้
 5. ตั้ง Admin ของแอปคนแรกอย่างชัดเจนด้วย [setup-admin.sql](setup-admin.sql): ใส่อีเมล Auth และ UUID องค์กรที่มีอยู่แล้ว บัญชีต้องมี identity/profile และ membership ที่ยังใช้งานได้ จากนั้นให้ Admin เปิด `/team` เพื่อกำหนดบทบาทแอปและหน้าที่แต่ละบทบาทใช้ได้ User และ Executive เริ่มต้นโดยยังไม่มีหน้าที่เปิดให้ใช้ ผู้ทำกับผู้ตรวจงานเดียวกันต้องเป็นคนละคน และผู้ยื่นคำขออนุมัติคำขอตนเองไม่ได้
@@ -191,6 +193,14 @@ Global identity guard และ organization guard จัดลำดับก�
 
 PGlite จัดคิว transactions จึงทดสอบผลของการลดสิทธิ์ที่เรียงลำดับได้ แต่ยังไม่ยืนยัน lock contention ระหว่าง PostgreSQL หลาย sessions จริง รอบงานนี้ไม่ได้รัน SQL หรือเปลี่ยนข้อมูลบน Supabase hosted ไม่ได้ส่งอีเมล และไม่ได้ยืนยัน hosted Auth/Storage
 
-`install.sql` รวม sources 001–006 พร้อม SHA256 ของไฟล์ต้นฉบับแต่ละไฟล์ ตรวจแล้วว่า sources ทั้ง 6 ชุดตรงทุกไบต์และ `upgrade-personnel.sql` ตรงกับ 006 จากนั้นรัน bundle บน PGlite ใหม่สำเร็จและพบ public RPC ทั้งสามตัว การตรวจนี้ไม่ได้ทดสอบ hosted Auth หรือการตั้งค่า project ให้เทียบ source bytes/hash และทดสอบติดตั้งใหม่หลังแก้ migrations เสมอ
+`install.sql` รวม sources 001–008 พร้อม SHA256 ของไฟล์ต้นฉบับแต่ละไฟล์ ตรวจแล้วว่า sources ทั้ง 8 ชุดตรงทุกไบต์และ `upgrade-personnel.sql` ตรงกับ 006 จากนั้นรัน bundle บน PGlite ใหม่สำเร็จและพบ public RPC ทั้งสามตัว การตรวจนี้ไม่ได้ทดสอบ hosted Auth หรือการตั้งค่า project ให้เทียบ source bytes/hash และทดสอบติดตั้งใหม่หลังแก้ migrations เสมอ
 
 ก่อนใช้ข้อมูลจริง ให้ทดสอบ hosted login/session และวงจรหลักด้วยบัญชีหลายบทบาท, ทดสอบ revoke/mutation ด้วย PostgreSQL สอง sessions จริง, กำหนดนโยบาย retention และทดสอบ backup/restore ฐานข้อมูลรวมไฟล์เมื่อเพิ่ม Storage แยก dev/test/prod และยืนยัน role templates กับผู้มีอำนาจของหน่วยงานก่อนนำร่อง
+
+## Upgrade 007: จัดการประชุม
+
+ฐานที่มี 001–006: รัน migrations/202610250007_meeting_management.sql ทั้งไฟล์ใน SQL Editor เพียงไฟล์เดียว ฐานที่ยังไม่ครบ 006 ให้ติดตั้งตามลำดับก่อน ห้ามรัน install.sql ทับฐานเดิม 007 รันซ้ำได้ ไม่ต้องแทน EMAIL/UUID และไม่แก้บัญชีหรือบทบาท
+
+install.sql รุ่นปัจจุบันรวม 001–007 พร้อม SHA256 แต่ยังใช้กับฐานใหม่เท่านั้น หลังอัปเกรด snapshot จะมี features.meetingManagement=true พร้อมคำสั่ง update_meeting/add_agenda/link_resolution ไม่มี scheduled job หรือบริการอีเมลรวมใน migration นี้
+
+ทดสอบเพิ่มด้วย node --import tsx supabase/tests/meeting-management.mjs (รวมใน npm run test:db) ตรวจ version/idempotency, audit, agenda ซ้ำ, frozen follow-up, cross-organization, Staff และการรันซ้ำ ชุดทดสอบใช้ PGlite แยก ไม่แตะ hosted database

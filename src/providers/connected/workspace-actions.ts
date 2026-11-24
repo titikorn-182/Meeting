@@ -24,6 +24,9 @@ export function createWorkspaceActions(
   | 'addTask'
   | 'closeResolution'
   | 'addMeeting'
+  | 'updateMeeting'
+  | 'addAgenda'
+  | 'linkResolution'
   | 'updateSettings'
   | 'markNotificationRead'
   | 'markAllRead'
@@ -63,7 +66,7 @@ export function createWorkspaceActions(
           await command(
             'add_personnel',
             { ...input },
-            'เพิ่มบุคลากรแล้ว รอเจ้าตัวสมัครและยืนยันอีเมลเพื่อเข้าใช้งาน',
+            'เพิ่มบุคลากรแล้ว รอเจ้าตัวสมัครและเข้าสู่ระบบด้วยอีเมลนี้',
           )
         )?.id ?? null
       );
@@ -181,6 +184,23 @@ export function createWorkspaceActions(
     },
     async updateSettings(patch) {
       return !!(await command('update_settings', { patch }, 'บันทึกการตั้งค่าแล้ว'));
+    },
+    async updateMeeting(id, expectedVersion, input) {
+      return !!(await command(
+        'update_meeting',
+        { id, expectedVersion, ...input },
+        'บันทึกข้อมูลการประชุมแล้ว',
+      ));
+    },
+    async addAgenda(id, expectedVersion, input) {
+      return !!(await command('add_agenda', { id, expectedVersion, ...input }, 'เพิ่มวาระแล้ว'));
+    },
+    async linkResolution(id, expectedVersion, input) {
+      return !!(await command(
+        'link_resolution',
+        { id, expectedVersion, ...input },
+        'เชื่อมมติเดิมกับวาระติดตามแล้ว',
+      ));
     },
     async markNotificationRead(id) {
       await command('mark_notification_read', { id }, 'ทำเครื่องหมายอ่านแล้ว');

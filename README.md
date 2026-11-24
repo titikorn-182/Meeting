@@ -1,5 +1,7 @@
 # POLUBU Smart meeting
 
+> อัปเดต 24 พ.ย. 2569: นโยบายปัจจุบันไม่บังคับยืนยันอีเมลก่อนรับสิทธิ์ ใช้ migration 008 และปิด Confirm email ใน Supabase ดู [คู่มือเปลี่ยนนโยบาย](supabase/EMAIL-ACCESS.md) ข้อความการยืนยันอีเมลในบันทึกเวอร์ชันเดิมด้านล่างเป็นนโยบายก่อนการอัปเดตนี้
+
 เว็บติดตามมติการประชุมสำหรับเลขานุการ ผู้รับผิดชอบ ผู้ตรวจ และผู้มีอำนาจอนุมัติ ใช้ [PRD.md](PRD.md) และ [database.md](database.md) เป็นฐานออกแบบ โดยเริ่มเชื่อม Supabase สำหรับฟังก์ชันหลักที่มีหน้าจอแล้ว
 
 ## เริ่มใช้งาน
@@ -17,7 +19,7 @@ npm run dev
 
 ## เชื่อม Supabase เมื่อพร้อมใส่ API Key
 
-1. สร้าง project และทำตาม [คู่มือติดตั้งฐานข้อมูล](supabase/README.md): project ใหม่ใช้ [install.sql](supabase/install.sql) ครั้งเดียว ซึ่งรวม migrations 001–006 ทั้ง 6 ไฟล์ หากมี 001–005 แล้วให้รันเฉพาะ [upgrade-personnel.sql](supabase/upgrade-personnel.sql) ไม่รัน `install.sql` หรือ migration 005 ซ้ำ; project ที่มีเพียง 001–004 ต้องเพิ่ม [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ครั้งเดียวก่อน แล้วจึงเพิ่ม personnel
+1. สร้าง project และทำตาม [คู่มือติดตั้งฐานข้อมูล](supabase/README.md): project ใหม่ใช้ [install.sql](supabase/install.sql) ครั้งเดียว ซึ่งรวม migrations 001–008 ทั้ง 8 ไฟล์ หากมี 001–005 แล้วให้รันเฉพาะ [upgrade-personnel.sql](supabase/upgrade-personnel.sql) ไม่รัน `install.sql` หรือ migration 005 ซ้ำ; project ที่มีเพียง 001–004 ต้องเพิ่ม [upgrade-role-access.sql](supabase/upgrade-role-access.sql) ครั้งเดียวก่อน แล้วจึงเพิ่ม personnel จากนั้นทุกฐานที่ครบ 006 ต้องเพิ่ม [migration 007](supabase/migrations/202610250007_meeting_management.sql)
 2. สร้างบัญชีใน Supabase Authentication แล้วใช้ [bootstrap.example.sql](supabase/bootstrap.example.sql) ที่แก้ UUID จริงแล้ว เพื่อสร้างองค์กรและมอบบทบาทให้แต่ละบัญชี บัญชี Auth อย่างเดียวยังไม่มีสิทธิ์อ่านงานหรืออนุมัติ
 
    เมื่อบัญชีมี identity/profile และ membership ที่ยังใช้งานได้แล้ว ให้ผู้ดูแลฐานข้อมูลแก้อีเมลและ UUID องค์กรใน [setup-admin.sql](supabase/setup-admin.sql) เพื่อแต่งตั้ง Admin ของแอปคนแรกอย่างชัดเจน จากนั้น Admin กำหนดบทบาทและหน้าใช้งานที่ `/team` สคริปต์นี้ไม่สร้าง Auth user หรือองค์กร และไม่เปิดคืน membership ที่ถูกปิด เลขานุการเดิมไม่ถูกยกระดับเป็น Admin อัตโนมัติ
@@ -125,3 +127,13 @@ npm run start
 รอบนี้ไม่ได้รัน migrations หรือเปลี่ยนบัญชีบน Supabase hosted การทดสอบ competing role changes ใน PGlite เป็น transactions ที่จัดคิวต่อกัน ยังไม่ใช่การทดสอบ lock contention หลาย database sessions จริง [database.md](database.md) และ PRD อธิบายโมเดลเป้าหมายที่กว้างกว่าฟีเจอร์ที่เชื่อมแล้วในรุ่นนี้
 
 อ้างอิง [Supabase SSR สำหรับ Next.js](https://supabase.com/docs/guides/auth/server-side/creating-a-client?queryGroups=framework&framework=nextjs) และ [Supabase migrations](https://supabase.com/docs/guides/local-development/database-migrations)
+
+## ส่วนเพิ่ม: flow บัญชีและจัดการประชุม (25 ต.ค. 2569)
+
+ดู [ผลตรวจทุก flow และรายการที่ยังต้องตัดสินใจ](FLOW-COVERAGE.md) เพิ่ม /forgot-password, /reset-password, /verify-email, /account, /help, /meetings/[id]/manage และ /resolutions/closures พร้อมตัวกรองใน URL
+
+ฐานที่ติดตั้ง migrations 001–006 แล้ว: รัน [202610250007_meeting_management.sql](supabase/migrations/202610250007_meeting_management.sql) ทั้งไฟล์ก่อนเปิดใช้จัดการประชุม ไฟล์นี้รันซ้ำได้ ไม่ต้องติดตั้งฐานใหม่ ส่วน install.sql ใช้กับฐานใหม่เท่านั้นและรวม 001–007 แล้ว
+
+Auth ใช้ Supabase public client และ server-side getUser ไม่ใช้ service_role ตั้ง Site URL/Redirect URLs ให้ตรงโดเมน รวม /auth/callback?next=/reset-password และตรวจ SMTP ก่อนใช้จริง เปิดอีเมลด้วยเบราว์เซอร์เดิมที่ขอลิงก์ PKCE การทดสอบอัตโนมัติใช้ Auth double บน localhost ไม่ส่งอีเมลจริง
+
+คำสั่งเพิ่ม: npm run test:account-ui (app :3103/Auth double :54329), npm run test:meeting-ui และ npm run test:list-navigation-ui (demo app :3101) ใช้ NEXT_DIST_DIR แยกแต่ละ server ตามตัวอย่างชุดทดสอบเดิม ห้ามชี้การทดสอบไป production

@@ -3,11 +3,29 @@
 import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowRight, Eye, EyeOff, LoaderCircle, MailCheck } from 'lucide-react';
-import { signUp } from '@/app/auth/actions';
+import { useRouter } from 'next/navigation';
+import { announceSessionChange } from '@/lib/session-events';
+import { signUp, type SignUpState } from '@/app/auth/actions';
 import styles from '../login/login.module.css';
 
 export function SignUpForm({ enabled }: { enabled: boolean }) {
-  const [state, action, pending] = useActionState(signUp, { error: null });
+  const router = useRouter();
+  const [state, action, pending] = useActionState(
+    async (previous: SignUpState, data: FormData) => {
+      try {
+        const result = await signUp(previous, data);
+        if (result.redirectTo) {
+          announceSessionChange('changed');
+          router.replace(result.redirectTo);
+          router.refresh();
+        }
+        return result;
+      } catch {
+        return { error: 'ติดต่อระบบสมัครบัญชีไม่ได้ กรุณาลองใหม่อีกครั้ง' };
+      }
+    },
+    { error: null },
+  );
   const [visible, setVisible] = useState(false);
   if (state.message)
     return (
@@ -116,7 +134,7 @@ export function SignUpForm({ enabled }: { enabled: boolean }) {
           </>
         ) : (
           <>
-            สมัครและยืนยันอีเมล
+            สมัครบัญชี
             <ArrowRight size={18} />
           </>
         )}

@@ -102,7 +102,7 @@ export function ReviewsScreen({ initialTaskId }: { initialTaskId?: string }) {
         title="ตรวจผลและรับรอง"
         description="พิจารณาผลงานตามเกณฑ์ พร้อมระบุหลักฐานและเหตุผลของผลตรวจ"
       >
-        <Link href="/resolutions?status=pending_close" className="button button-secondary">
+        <Link href="/resolutions/closures" className="button button-secondary">
           <ShieldCheck size={17} /> มติรอรับรองปิด
         </Link>
       </PageHeader>

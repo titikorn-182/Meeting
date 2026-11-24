@@ -5,7 +5,8 @@ export function isPersonnelClaimUnavailable(
   return error?.code === 'PGRST202' && /\bclaim_workspace_invitations\b/.test(error.message ?? '');
 }
 
-export function needsVerifiedPersonnelEmail(result: unknown): boolean {
+/** Only detects an older database policy so the API can request an upgrade. */
+export function isLegacyPersonnelVerificationGate(result: unknown): boolean {
   return (
     !!result &&
     typeof result === 'object' &&
